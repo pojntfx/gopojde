@@ -1,30 +1,33 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"strings"
+	"flag"
+	"log"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-)
-
-const (
-	prefix = "/pojde-"
+	"github.com/pojntfx/gopojde/pkg/orchestration"
+	"github.com/pojntfx/gopojde/pkg/servers"
+	"github.com/pojntfx/gopojde/pkg/services"
 )
 
 func main() {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	laddr := flag.String("laddr", ":15123", "Listen address")
+	wsladdr := flag.String("wsladdr", ":15124", "Listen address (for the WebSocket proxy)")
+
+	flag.Parse()
+
+	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		panic(err)
+		log.Fatal("could not connect to Docker:", err)
 	}
 
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
-	if err != nil {
-		panic(err)
-	}
+	instancesOrchestration := orchestration.NewInstancesManager(docker)
 
-	for _, instance := range containers {
-		fmt.Printf("%v\n", strings.TrimPrefix(instance.Names[0], prefix))
-	}
+	instancesService := services.NewInstancesService(instancesOrchestration)
+
+	log.Printf("pojde backend listening on %v (gRPC) and %v (gRPC-Web)\n", *laddr, *wsladdr)
+
+	grpcServer := servers.NewGRPCServer(*laddr, *wsladdr, instancesService)
+
+	log.Fatal(grpcServer.ListenAndServe())
 }

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.pojtinger.felicitas.pojde;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/pojntfx/pojde/pkg/api/proto/v1";
+
+service InstancesService {
+  rpc GetInstances(google.protobuf.Empty) returns (Instances);
+}
+
+message Instances {
+  repeated Instance instances = 1;
+}
+
+message Instance {
+  string Name = 1;
+  repeated int32 Ports = 2;
+  string Status = 3;
+}
