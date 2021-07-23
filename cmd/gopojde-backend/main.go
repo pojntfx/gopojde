@@ -51,7 +51,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 			srv := servers.NewGRPCServer(viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey), instancesService)
 
 			// Start servers
-			log.Printf("pojde backend listening on %v (gRPC) and %v (gRPC-Web)\n", viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey))
+			log.Printf("gopojde backend listening on %v (gRPC) and %v (gRPC-Web)\n", viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey))
 
 			return srv.ListenAndServe()
 		},
@@ -61,7 +61,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 	cmd.PersistentFlags().StringP(configFileKey, "c", "", "Config file to use")
 
 	cmd.PersistentFlags().String(listenAddressKey, ":15323", "Listen address")
-	cmd.PersistentFlags().String(websocketListenAddressKey, ":15134", "Listen address (for the WebSocket proxy)")
+	cmd.PersistentFlags().String(websocketListenAddressKey, ":15324", "Listen address (for the WebSocket proxy)")
 
 	// Bind env variables
 	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
