@@ -7,9 +7,9 @@ require (
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/golang/protobuf v1.5.2
-	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/pojntfx/bofied v1.1.0
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/spf13/cobra v1.2.1
+	github.com/spf13/viper v1.8.1
 	google.golang.org/grpc v1.39.0
-	google.golang.org/protobuf v1.26.0
+	google.golang.org/protobuf v1.27.1
 )
