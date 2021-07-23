@@ -79,7 +79,7 @@ func (s *GRPCServer) ListenAndServe() error {
 	select {
 	case <-doneChan:
 		return nil
-	case <-errChan:
+	case err := <-errChan:
 		return err
 	}
 }
