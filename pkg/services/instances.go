@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/orchestration"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 //go:generate sh -c "mkdir -p ../api/proto/v1 && protoc --go_out=paths=source_relative,plugins=grpc:../api/proto/v1 -I=../../api/proto/v1 ../../api/proto/v1/*.proto"
@@ -58,4 +59,8 @@ func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api
 			return err
 		}
 	}
+}
+
+func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.StartInstance(ctx, req.GetName())
 }
