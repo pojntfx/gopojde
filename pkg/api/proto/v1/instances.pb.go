@@ -403,7 +403,7 @@ var file_instances_proto_rawDesc = []byte{
 	0x73, 0x66, 0x65, 0x72, 0x22, 0x29, 0x0a, 0x0d, 0x43, 0x41, 0x43, 0x65, 0x72, 0x74, 0x4d, 0x65,
 	0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x32,
-	0x9e, 0x05, 0x0a, 0x10, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x73, 0x53, 0x65, 0x72,
+	0xd9, 0x05, 0x0a, 0x10, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x73, 0x53, 0x65, 0x72,
 	0x76, 0x69, 0x63, 0x65, 0x12, 0x53, 0x0a, 0x0c, 0x47, 0x65, 0x74, 0x49, 0x6e, 0x73, 0x74, 0x61,
 	0x6e, 0x63, 0x65, 0x73, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
 	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x2b, 0x2e, 0x63,
@@ -445,10 +445,13 @@ var file_instances_proto_rawDesc = []byte{
 	0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x28, 0x2e, 0x63, 0x6f, 0x6d, 0x2e, 0x70, 0x6f, 0x6a,
 	0x74, 0x69, 0x6e, 0x67, 0x65, 0x72, 0x2e, 0x66, 0x65, 0x6c, 0x69, 0x78, 0x2e, 0x70, 0x6f, 0x6a,
 	0x64, 0x65, 0x2e, 0x43, 0x41, 0x43, 0x65, 0x72, 0x74, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
-	0x42, 0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70,
-	0x6f, 0x6a, 0x6e, 0x74, 0x66, 0x78, 0x2f, 0x70, 0x6f, 0x6a, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x12, 0x39, 0x0a, 0x07, 0x52, 0x65, 0x73, 0x65, 0x74, 0x43, 0x41, 0x12, 0x16, 0x2e, 0x67, 0x6f,
+	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d,
+	0x70, 0x74, 0x79, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x42, 0x2b, 0x5a, 0x29, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x6f, 0x6a, 0x6e, 0x74, 0x66,
+	0x78, 0x2f, 0x70, 0x6f, 0x6a, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -482,15 +485,17 @@ var file_instances_proto_depIdxs = []int32{
 	2, // 5: com.pojtinger.felicitas.pojde.InstancesService.RestartInstance:input_type -> com.pojtinger.felicitas.pojde.InstanceReferenceMessage
 	4, // 6: com.pojtinger.felicitas.pojde.InstancesService.RemoveInstance:input_type -> com.pojtinger.felicitas.pojde.InstanceRemovalOptionsMessage
 	6, // 7: com.pojtinger.felicitas.pojde.InstancesService.GetCACert:input_type -> google.protobuf.Empty
-	0, // 8: com.pojtinger.felicitas.pojde.InstancesService.GetInstances:output_type -> com.pojtinger.felicitas.pojde.InstancesMessage
-	3, // 9: com.pojtinger.felicitas.pojde.InstancesService.GetLogs:output_type -> com.pojtinger.felicitas.pojde.LogMessage
-	6, // 10: com.pojtinger.felicitas.pojde.InstancesService.StartInstance:output_type -> google.protobuf.Empty
-	6, // 11: com.pojtinger.felicitas.pojde.InstancesService.StopInstance:output_type -> google.protobuf.Empty
-	6, // 12: com.pojtinger.felicitas.pojde.InstancesService.RestartInstance:output_type -> google.protobuf.Empty
-	6, // 13: com.pojtinger.felicitas.pojde.InstancesService.RemoveInstance:output_type -> google.protobuf.Empty
-	5, // 14: com.pojtinger.felicitas.pojde.InstancesService.GetCACert:output_type -> com.pojtinger.felicitas.pojde.CACertMessage
-	8, // [8:15] is the sub-list for method output_type
-	1, // [1:8] is the sub-list for method input_type
+	6, // 8: com.pojtinger.felicitas.pojde.InstancesService.ResetCA:input_type -> google.protobuf.Empty
+	0, // 9: com.pojtinger.felicitas.pojde.InstancesService.GetInstances:output_type -> com.pojtinger.felicitas.pojde.InstancesMessage
+	3, // 10: com.pojtinger.felicitas.pojde.InstancesService.GetLogs:output_type -> com.pojtinger.felicitas.pojde.LogMessage
+	6, // 11: com.pojtinger.felicitas.pojde.InstancesService.StartInstance:output_type -> google.protobuf.Empty
+	6, // 12: com.pojtinger.felicitas.pojde.InstancesService.StopInstance:output_type -> google.protobuf.Empty
+	6, // 13: com.pojtinger.felicitas.pojde.InstancesService.RestartInstance:output_type -> google.protobuf.Empty
+	6, // 14: com.pojtinger.felicitas.pojde.InstancesService.RemoveInstance:output_type -> google.protobuf.Empty
+	5, // 15: com.pojtinger.felicitas.pojde.InstancesService.GetCACert:output_type -> com.pojtinger.felicitas.pojde.CACertMessage
+	6, // 16: com.pojtinger.felicitas.pojde.InstancesService.ResetCA:output_type -> google.protobuf.Empty
+	9, // [9:17] is the sub-list for method output_type
+	1, // [1:9] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -614,6 +619,7 @@ type InstancesServiceClient interface {
 	RestartInstance(ctx context.Context, in *InstanceReferenceMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 	RemoveInstance(ctx context.Context, in *InstanceRemovalOptionsMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 	GetCACert(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*CACertMessage, error)
+	ResetCA(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type instancesServiceClient struct {
@@ -710,6 +716,15 @@ func (c *instancesServiceClient) GetCACert(ctx context.Context, in *empty.Empty,
 	return out, nil
 }
 
+func (c *instancesServiceClient) ResetCA(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/com.pojtinger.felicitas.pojde.InstancesService/ResetCA", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InstancesServiceServer is the server API for InstancesService service.
 type InstancesServiceServer interface {
 	GetInstances(context.Context, *empty.Empty) (*InstancesMessage, error)
@@ -719,6 +734,7 @@ type InstancesServiceServer interface {
 	RestartInstance(context.Context, *InstanceReferenceMessage) (*empty.Empty, error)
 	RemoveInstance(context.Context, *InstanceRemovalOptionsMessage) (*empty.Empty, error)
 	GetCACert(context.Context, *empty.Empty) (*CACertMessage, error)
+	ResetCA(context.Context, *empty.Empty) (*empty.Empty, error)
 }
 
 // UnimplementedInstancesServiceServer can be embedded to have forward compatible implementations.
@@ -745,6 +761,9 @@ func (*UnimplementedInstancesServiceServer) RemoveInstance(context.Context, *Ins
 }
 func (*UnimplementedInstancesServiceServer) GetCACert(context.Context, *empty.Empty) (*CACertMessage, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCACert not implemented")
+}
+func (*UnimplementedInstancesServiceServer) ResetCA(context.Context, *empty.Empty) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetCA not implemented")
 }
 
 func RegisterInstancesServiceServer(s *grpc.Server, srv InstancesServiceServer) {
@@ -880,6 +899,24 @@ func _InstancesService_GetCACert_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InstancesService_ResetCA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InstancesServiceServer).ResetCA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/com.pojtinger.felicitas.pojde.InstancesService/ResetCA",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InstancesServiceServer).ResetCA(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _InstancesService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "com.pojtinger.felicitas.pojde.InstancesService",
 	HandlerType: (*InstancesServiceServer)(nil),
@@ -907,6 +944,10 @@ var _InstancesService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCACert",
 			Handler:    _InstancesService_GetCACert_Handler,
+		},
+		{
+			MethodName: "ResetCA",
+			Handler:    _InstancesService_ResetCA_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
