@@ -68,3 +68,7 @@ func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceR
 func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.StopInstance(ctx, req.GetName())
 }
+
+func (s *InstancesService) RestartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.RestartInstance(ctx, req.GetName())
+}
