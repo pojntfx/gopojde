@@ -15,6 +15,10 @@ const (
 	prefix = "/pojde-"
 )
 
+var (
+	journalctlTail = []string{"journalctl", "-f"}
+)
+
 func removePrefix(name string) string {
 	return strings.TrimPrefix(name, prefix)
 }
@@ -70,32 +74,45 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 	return instances, nil
 }
 
-func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan string, chan error) {
+func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan string, chan error, *types.HijackedResponse) {
 	outChan := make(chan string)
 	errChan := make(chan error)
 
-	logs, err := m.docker.ContainerLogs(ctx, addPrefix(instanceName), types.ContainerLogsOptions{
-		ShowStderr: true,
-		ShowStdout: true,
-		Timestamps: false,
-		Follow:     true,
+	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          journalctlTail,
 	})
 	if err != nil {
 		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
 		go func() {
-			errChan <- fmt.Errorf("could not get instance logs: %v", err)
+			errChan <- fmt.Errorf("could not request instance logs: %v", err)
 
 			close(outChan)
 			close(errChan)
 		}()
 
-		return outChan, errChan
+		return outChan, errChan, nil
+	}
+
+	logs, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	if err != nil {
+		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
+		go func() {
+			errChan <- fmt.Errorf("could not attach to instance logs: %v", err)
+
+			close(outChan)
+			close(errChan)
+		}()
+
+		return outChan, errChan, &logs
 	}
 
 	go func() {
-		header := make([]byte, 8)
 		for {
-			if _, err := logs.Read(header); err != nil {
+			header := make([]byte, 8)
+
+			if _, err := logs.Reader.Read(header); err != nil {
 				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
 
 				close(outChan)
@@ -105,7 +122,7 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 			}
 
 			data := make([]byte, binary.BigEndian.Uint32(header[4:]))
-			if _, err := logs.Read(data); err != nil {
+			if _, err := logs.Reader.Read(data); err != nil {
 				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
 
 				close(outChan)
@@ -118,5 +135,5 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 		}
 	}()
 
-	return outChan, nil
+	return outChan, nil, &logs
 }
