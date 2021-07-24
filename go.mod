@@ -3,6 +3,7 @@ module github.com/pojntfx/gopojde
 go 1.16
 
 require (
+	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/containerd/containerd v1.5.4 // indirect
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
