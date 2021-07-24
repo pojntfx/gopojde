@@ -2,6 +2,8 @@ package orchestration
 
 import (
 	"context"
+	"encoding/binary"
+	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -12,6 +14,14 @@ import (
 const (
 	prefix = "/pojde-"
 )
+
+func removePrefix(name string) string {
+	return strings.TrimPrefix(name, prefix)
+}
+
+func addPrefix(name string) string {
+	return prefix + name
+}
 
 type Instance struct {
 	Name   string
@@ -29,8 +39,8 @@ func NewInstancesManager(docker *client.Client) *InstancesManager {
 	}
 }
 
-func (m *InstancesManager) GetInstances() ([]Instance, error) {
-	containers, err := m.docker.ContainerList(context.Background(), types.ContainerListOptions{
+func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error) {
+	containers, err := m.docker.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", prefix)),
 	})
 	if err != nil {
@@ -51,11 +61,62 @@ func (m *InstancesManager) GetInstances() ([]Instance, error) {
 		}
 
 		instances = append(instances, Instance{
-			Name:   strings.TrimPrefix(container.Names[0], prefix),
+			Name:   removePrefix(container.Names[0]),
 			Ports:  ports,
 			Status: container.State,
 		})
 	}
 
 	return instances, nil
+}
+
+func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan string, chan error) {
+	outChan := make(chan string)
+	errChan := make(chan error)
+
+	logs, err := m.docker.ContainerLogs(ctx, addPrefix(instanceName), types.ContainerLogsOptions{
+		ShowStderr: true,
+		ShowStdout: true,
+		Timestamps: false,
+		Follow:     true,
+	})
+	if err != nil {
+		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
+		go func() {
+			errChan <- fmt.Errorf("could not get instance logs: %v", err)
+
+			close(outChan)
+			close(errChan)
+		}()
+
+		return outChan, errChan
+	}
+
+	go func() {
+		header := make([]byte, 8)
+		for {
+			if _, err := logs.Read(header); err != nil {
+				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
+
+				close(outChan)
+				close(errChan)
+
+				return
+			}
+
+			data := make([]byte, binary.BigEndian.Uint32(header[4:]))
+			if _, err := logs.Read(data); err != nil {
+				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
+
+				close(outChan)
+				close(errChan)
+
+				return
+			}
+
+			outChan <- string(data)
+		}
+	}()
+
+	return outChan, nil
 }

@@ -22,22 +22,39 @@ func NewInstancesService(instancesManager *orchestration.InstancesManager) *Inst
 	}
 }
 
-func (s *InstancesService) GetInstances(context.Context, *empty.Empty) (*api.Instances, error) {
-	instances, err := s.instancesManager.GetInstances()
+func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*api.InstancesMessage, error) {
+	instances, err := s.instancesManager.GetInstances(ctx)
 	if err != nil {
-		return &api.Instances{}, err
+		return &api.InstancesMessage{}, err
 	}
 
-	out := []*api.Instance{}
+	out := []*api.InstanceMessage{}
 	for _, instance := range instances {
-		out = append(out, &api.Instance{
+		out = append(out, &api.InstanceMessage{
 			Name:   instance.Name,
 			Ports:  instance.Ports,
 			Status: instance.Status,
 		})
 	}
 
-	return &api.Instances{
+	return &api.InstancesMessage{
 		Instances: out,
 	}, nil
+}
+
+func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api.InstancesService_GetLogsServer) error {
+	logChan, errChan := s.instancesManager.GetLogs(stream.Context(), req.GetName())
+
+	for {
+		select {
+		case chunk := <-logChan:
+			if err := stream.Send(&api.LogMessage{
+				Chunk: chunk,
+			}); err != nil {
+				return err
+			}
+		case err := <-errChan:
+			return err
+		}
+	}
 }

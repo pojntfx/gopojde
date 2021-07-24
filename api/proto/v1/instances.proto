@@ -7,15 +7,24 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/pojntfx/pojde/pkg/api/proto/v1";
 
 service InstancesService {
-  rpc GetInstances(google.protobuf.Empty) returns (Instances);
+  rpc GetInstances(google.protobuf.Empty) returns (InstancesMessage);
+  rpc GetLogs(InstanceReferenceMessage) returns (stream LogMessage);
 }
 
-message Instances {
-  repeated Instance instances = 1;
+message InstancesMessage {
+  repeated InstanceMessage instances = 1;
 }
 
-message Instance {
+message InstanceMessage {
   string Name = 1;
   repeated int32 Ports = 2;
   string Status = 3;
+}
+
+message InstanceReferenceMessage {
+  string Name = 1;
+}
+
+message LogMessage {
+  string Chunk = 1;
 }
