@@ -253,7 +253,7 @@ var file_instances_proto_rawDesc = []byte{
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x22, 0x0a, 0x0a,
 	0x4c, 0x6f, 0x67, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x43, 0x68,
 	0x75, 0x6e, 0x6b, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x43, 0x68, 0x75, 0x6e, 0x6b,
-	0x32, 0xae, 0x02, 0x0a, 0x10, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x73, 0x53, 0x65,
+	0x32, 0x8b, 0x03, 0x0a, 0x10, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x73, 0x53, 0x65,
 	0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x53, 0x0a, 0x0c, 0x47, 0x65, 0x74, 0x49, 0x6e, 0x73, 0x74,
 	0x61, 0x6e, 0x63, 0x65, 0x73, 0x12, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x2b, 0x2e,
@@ -272,10 +272,16 @@ var file_instances_proto_rawDesc = []byte{
 	0x2e, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
 	0x63, 0x65, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67,
 	0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74,
-	0x79, 0x42, 0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f,
-	0x70, 0x6f, 0x6a, 0x6e, 0x74, 0x66, 0x78, 0x2f, 0x70, 0x6f, 0x6a, 0x64, 0x65, 0x2f, 0x70, 0x6b,
-	0x67, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76, 0x31, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x79, 0x12, 0x5b, 0x0a, 0x0c, 0x53, 0x74, 0x6f, 0x70, 0x49, 0x6e, 0x73, 0x74, 0x61, 0x6e, 0x63,
+	0x65, 0x12, 0x33, 0x2e, 0x63, 0x6f, 0x6d, 0x2e, 0x70, 0x6f, 0x6a, 0x74, 0x69, 0x6e, 0x67, 0x65,
+	0x72, 0x2e, 0x66, 0x65, 0x6c, 0x69, 0x78, 0x2e, 0x70, 0x6f, 0x6a, 0x64, 0x65, 0x2e, 0x49, 0x6e,
+	0x73, 0x74, 0x61, 0x6e, 0x63, 0x65, 0x52, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x4d,
+	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x42, 0x2b,
+	0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x6f, 0x6a,
+	0x6e, 0x74, 0x66, 0x78, 0x2f, 0x70, 0x6f, 0x6a, 0x64, 0x65, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x33,
 }
 
 var (
@@ -303,11 +309,13 @@ var file_instances_proto_depIdxs = []int32{
 	4, // 1: com.pojtinger.felicitas.pojde.InstancesService.GetInstances:input_type -> google.protobuf.Empty
 	2, // 2: com.pojtinger.felicitas.pojde.InstancesService.GetLogs:input_type -> com.pojtinger.felicitas.pojde.InstanceReferenceMessage
 	2, // 3: com.pojtinger.felicitas.pojde.InstancesService.StartInstance:input_type -> com.pojtinger.felicitas.pojde.InstanceReferenceMessage
-	0, // 4: com.pojtinger.felicitas.pojde.InstancesService.GetInstances:output_type -> com.pojtinger.felicitas.pojde.InstancesMessage
-	3, // 5: com.pojtinger.felicitas.pojde.InstancesService.GetLogs:output_type -> com.pojtinger.felicitas.pojde.LogMessage
-	4, // 6: com.pojtinger.felicitas.pojde.InstancesService.StartInstance:output_type -> google.protobuf.Empty
-	4, // [4:7] is the sub-list for method output_type
-	1, // [1:4] is the sub-list for method input_type
+	2, // 4: com.pojtinger.felicitas.pojde.InstancesService.StopInstance:input_type -> com.pojtinger.felicitas.pojde.InstanceReferenceMessage
+	0, // 5: com.pojtinger.felicitas.pojde.InstancesService.GetInstances:output_type -> com.pojtinger.felicitas.pojde.InstancesMessage
+	3, // 6: com.pojtinger.felicitas.pojde.InstancesService.GetLogs:output_type -> com.pojtinger.felicitas.pojde.LogMessage
+	4, // 7: com.pojtinger.felicitas.pojde.InstancesService.StartInstance:output_type -> google.protobuf.Empty
+	4, // 8: com.pojtinger.felicitas.pojde.InstancesService.StopInstance:output_type -> google.protobuf.Empty
+	5, // [5:9] is the sub-list for method output_type
+	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -403,6 +411,7 @@ type InstancesServiceClient interface {
 	GetInstances(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*InstancesMessage, error)
 	GetLogs(ctx context.Context, in *InstanceReferenceMessage, opts ...grpc.CallOption) (InstancesService_GetLogsClient, error)
 	StartInstance(ctx context.Context, in *InstanceReferenceMessage, opts ...grpc.CallOption) (*empty.Empty, error)
+	StopInstance(ctx context.Context, in *InstanceReferenceMessage, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type instancesServiceClient struct {
@@ -463,11 +472,21 @@ func (c *instancesServiceClient) StartInstance(ctx context.Context, in *Instance
 	return out, nil
 }
 
+func (c *instancesServiceClient) StopInstance(ctx context.Context, in *InstanceReferenceMessage, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/com.pojtinger.felicitas.pojde.InstancesService/StopInstance", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InstancesServiceServer is the server API for InstancesService service.
 type InstancesServiceServer interface {
 	GetInstances(context.Context, *empty.Empty) (*InstancesMessage, error)
 	GetLogs(*InstanceReferenceMessage, InstancesService_GetLogsServer) error
 	StartInstance(context.Context, *InstanceReferenceMessage) (*empty.Empty, error)
+	StopInstance(context.Context, *InstanceReferenceMessage) (*empty.Empty, error)
 }
 
 // UnimplementedInstancesServiceServer can be embedded to have forward compatible implementations.
@@ -482,6 +501,9 @@ func (*UnimplementedInstancesServiceServer) GetLogs(*InstanceReferenceMessage, I
 }
 func (*UnimplementedInstancesServiceServer) StartInstance(context.Context, *InstanceReferenceMessage) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartInstance not implemented")
+}
+func (*UnimplementedInstancesServiceServer) StopInstance(context.Context, *InstanceReferenceMessage) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopInstance not implemented")
 }
 
 func RegisterInstancesServiceServer(s *grpc.Server, srv InstancesServiceServer) {
@@ -545,6 +567,24 @@ func _InstancesService_StartInstance_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InstancesService_StopInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstanceReferenceMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InstancesServiceServer).StopInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/com.pojtinger.felicitas.pojde.InstancesService/StopInstance",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InstancesServiceServer).StopInstance(ctx, req.(*InstanceReferenceMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _InstancesService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "com.pojtinger.felicitas.pojde.InstancesService",
 	HandlerType: (*InstancesServiceServer)(nil),
@@ -556,6 +596,10 @@ var _InstancesService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StartInstance",
 			Handler:    _InstancesService_StartInstance_Handler,
+		},
+		{
+			MethodName: "StopInstance",
+			Handler:    _InstancesService_StopInstance_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
