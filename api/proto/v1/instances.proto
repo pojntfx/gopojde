@@ -13,6 +13,7 @@ service InstancesService {
   rpc StopInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc RestartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc RemoveInstance(InstanceRemovalOptionsMessage) returns (google.protobuf.Empty);
+  rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
 }
 
 message InstancesMessage {
@@ -40,4 +41,8 @@ message InstanceRemovalOptionsMessage {
   bool Preferences = 4;
   bool UserData = 5;
   bool Transfer = 6;
+}
+
+message CACertMessage {
+  string Content = 1;
 }

@@ -82,3 +82,14 @@ func (s *InstancesService) RemoveInstance(ctx context.Context, req *api.Instance
 		Transfer:       req.GetTransfer(),
 	})
 }
+
+func (s *InstancesService) GetCACert(ctx context.Context, _ *empty.Empty) (*api.CACertMessage, error) {
+	cert, err := s.instancesManager.GetCACert(ctx)
+	if err != nil {
+		return &api.CACertMessage{}, err
+	}
+
+	return &api.CACertMessage{
+		Content: cert,
+	}, nil
+}
