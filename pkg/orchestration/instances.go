@@ -46,6 +46,7 @@ func NewInstancesManager(docker *client.Client) *InstancesManager {
 func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error) {
 	containers, err := m.docker.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", prefix)),
+		All:     true,
 	})
 	if err != nil {
 		return []Instance{}, err
