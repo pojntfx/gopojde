@@ -72,3 +72,13 @@ func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceRe
 func (s *InstancesService) RestartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.RestartInstance(ctx, req.GetName())
 }
+
+func (s *InstancesService) RemoveInstance(ctx context.Context, req *api.InstanceRemovalOptionsMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.RemoveInstance(ctx, req.GetName(), orchestration.InstanceRemovalOptions{
+		Customizations: req.GetCustomizations(),
+		DEBCache:       req.GetDEBCache(),
+		Preferences:    req.GetPreferences(),
+		UserData:       req.GetUserData(),
+		Transfer:       req.GetTransfer(),
+	})
+}

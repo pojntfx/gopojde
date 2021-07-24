@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -25,6 +27,35 @@ func removePrefix(name string) string {
 
 func addPrefix(name string) string {
 	return prefix + name
+}
+
+func getDEBCacheVolumeName(name string) string {
+	return addPrefix(name + "-apt-cache")
+}
+
+func getPreferencesVolumeName(name string) string {
+	return addPrefix(name + "-preferences")
+}
+
+func getUserDataVolumeNames(name string) []string {
+	return []string{addPrefix(name + "-home-root"), addPrefix(name + "-home-user")}
+}
+
+func getTransferDirectory(name string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(home, "Documents", "pojde", name), nil
+}
+
+type InstanceRemovalOptions struct {
+	Customizations bool
+	DEBCache       bool
+	Preferences    bool
+	UserData       bool
+	Transfer       bool
 }
 
 type Instance struct {
@@ -149,4 +180,55 @@ func (m *InstancesManager) StopInstance(ctx context.Context, instanceName string
 
 func (m *InstancesManager) RestartInstance(ctx context.Context, instanceName string) error {
 	return m.docker.ContainerRestart(ctx, addPrefix(instanceName), nil)
+}
+
+func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions) error {
+	// Remove customization; we have to call this before removing the container as it runs inside of it
+	if options.Customizations {
+		// TODO: Loop over vendored scripts and call `refresh`
+	}
+
+	// Remove container
+	if err := m.docker.ContainerRemove(ctx, addPrefix(instanceName), types.ContainerRemoveOptions{
+		Force: true,
+	}); err != nil {
+		return err
+	}
+
+	// Remove DEB cache
+	if options.DEBCache {
+		if err := m.docker.VolumeRemove(ctx, getDEBCacheVolumeName(instanceName), false); err != nil {
+			return err
+		}
+	}
+
+	// Remove preferences
+	if options.Preferences {
+		if err := m.docker.VolumeRemove(ctx, getPreferencesVolumeName(instanceName), false); err != nil {
+			return err
+		}
+	}
+
+	// Remove user data
+	if options.UserData {
+		for _, volume := range getUserDataVolumeNames(instanceName) {
+			if err := m.docker.VolumeRemove(ctx, volume, false); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Remove transfer directory
+	if options.Transfer {
+		dir, err := getTransferDirectory(instanceName)
+		if err != nil {
+			return err
+		}
+
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

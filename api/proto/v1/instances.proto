@@ -12,6 +12,7 @@ service InstancesService {
   rpc StartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc StopInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc RestartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
+  rpc RemoveInstance(InstanceRemovalOptionsMessage) returns (google.protobuf.Empty);
 }
 
 message InstancesMessage {
@@ -30,4 +31,13 @@ message InstanceReferenceMessage {
 
 message LogMessage {
   string Chunk = 1;
+}
+
+message InstanceRemovalOptionsMessage {
+  string Name = 1;
+  bool Customizations = 2;
+  bool DEBCache = 3;
+  bool Preferences = 4;
+  bool UserData = 5;
+  bool Transfer = 6;
 }
