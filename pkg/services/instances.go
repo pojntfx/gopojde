@@ -64,3 +64,7 @@ func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api
 func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.StartInstance(ctx, req.GetName())
 }
+
+func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.StopInstance(ctx, req.GetName())
+}

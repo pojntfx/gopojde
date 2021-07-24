@@ -141,3 +141,7 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string) error {
 	return m.docker.ContainerStart(ctx, addPrefix(instanceName), types.ContainerStartOptions{})
 }
+
+func (m *InstancesManager) StopInstance(ctx context.Context, instanceName string) error {
+	return m.docker.ContainerStop(ctx, addPrefix(instanceName), nil)
+}
