@@ -1,53 +1,64 @@
 package orchestration
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 const (
-	prefix = "/pojde-"
+	prefix                  = "/pojde-"
+	configurationScriptsDir = "/opt/pojde/configuration"
 )
 
 var (
-	journalctlTail = []string{"journalctl", "-f"}
+	journalctlTail     = []string{"journalctl", "-f"}
+	getScripts         = []string{"ls", configurationScriptsDir}
+	blocklistedScripts = []string{"parameters.sh"} // TODO: Remove this as soon as scripts are no longer interactive
 )
 
-func removePrefix(name string) string {
-	return strings.TrimPrefix(name, prefix)
+func removePrefix(instanceName string) string {
+	return strings.TrimPrefix(instanceName, prefix)
 }
 
-func addPrefix(name string) string {
-	return prefix + name
+func addPrefix(instanceName string) string {
+	return prefix + instanceName
 }
 
-func getDEBCacheVolumeName(name string) string {
-	return addPrefix(name + "-apt-cache")
+func getDEBCacheVolumeName(instanceName string) string {
+	return addPrefix(instanceName + "-apt-cache")
 }
 
-func getPreferencesVolumeName(name string) string {
-	return addPrefix(name + "-preferences")
+func getPreferencesVolumeName(instanceName string) string {
+	return addPrefix(instanceName + "-preferences")
 }
 
-func getUserDataVolumeNames(name string) []string {
-	return []string{addPrefix(name + "-home-root"), addPrefix(name + "-home-user")}
+func getUserDataVolumeNames(instanceName string) []string {
+	return []string{addPrefix(instanceName + "-home-root"), addPrefix(instanceName + "-home-user")}
 }
 
-func getTransferDirectory(name string) (string, error) {
+func getTransferDirectory(instanceName string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	return filepath.Join(home, "Documents", "pojde", name), nil
+	return filepath.Join(home, "Documents", "pojde", instanceName), nil
+}
+
+func getCommandToExecuteRefreshScript(scriptPath string) []string {
+	return []string{"bash", "-c", fmt.Sprintf(". %v && refresh", scriptPath)}
 }
 
 type InstanceRemovalOptions struct {
@@ -185,7 +196,42 @@ func (m *InstancesManager) RestartInstance(ctx context.Context, instanceName str
 func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions) error {
 	// Remove customization; we have to call this before removing the container as it runs inside of it
 	if options.Customizations {
-		// TODO: Loop over vendored scripts and call `refresh`
+		stdout, stderr, exitCode, err := m.execInInstance(ctx, instanceName, getScripts)
+		if err != nil {
+			return err
+		}
+
+		if exitCode != 0 {
+			return fmt.Errorf("could not enumerate configuration scripts in instance: Non-zero exit code %v: stdout=%v, stderr=%v", exitCode, stdout, stderr)
+		}
+
+	o:
+		for _, script := range strings.Split(string(stdout), "\n") {
+			// Skip non-scripts
+			if !strings.HasSuffix(script, ".sh") {
+				continue
+			}
+
+			// Skip blocklisted scripts (such as the interactive parameters script)
+			for _, blocklistedScript := range blocklistedScripts {
+				if strings.Contains(script, blocklistedScript) {
+					// We are in a nested loop, so continue at the outer one
+					continue o
+				}
+			}
+
+			// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
+			scriptPath := path.Join(configurationScriptsDir, script)
+
+			stdout, stderr, exitCode, err := m.execInInstance(ctx, instanceName, getCommandToExecuteRefreshScript(scriptPath))
+			if err != nil {
+				return err
+			}
+
+			if exitCode != 0 {
+				return fmt.Errorf("could not run configuration scripts in instance: Non-zero exit code %v: stdout=%v, stderr=%v", exitCode, stdout, stderr)
+			}
+		}
 	}
 
 	// Remove container
@@ -231,4 +277,56 @@ func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName stri
 	}
 
 	return nil
+}
+
+func (m *InstancesManager) execInInstance(ctx context.Context, instanceName string, command []string) (string, string, int, error) {
+	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          command,
+	})
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	if err != nil {
+		return "", "", 0, err
+	}
+	defer resp.Close()
+
+	var outBuf, errBuf bytes.Buffer
+	done := make(chan error)
+
+	go func() {
+		_, err := stdcopy.StdCopy(&outBuf, &errBuf, resp.Reader)
+
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			return "", "", 0, err
+		}
+	case <-ctx.Done():
+		return "", "", 0, ctx.Err()
+	}
+
+	stdout, err := io.ReadAll(&outBuf)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	stderr, err := io.ReadAll(&errBuf)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	meta, err := m.docker.ContainerExecInspect(ctx, exec.ID)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	return string(stdout), string(stderr), meta.ExitCode, nil
 }
