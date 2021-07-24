@@ -74,7 +74,7 @@ func (s *InstancesService) RestartInstance(ctx context.Context, req *api.Instanc
 }
 
 func (s *InstancesService) RemoveInstance(ctx context.Context, req *api.InstanceRemovalOptionsMessage) (*empty.Empty, error) {
-	return &emptypb.Empty{}, s.instancesManager.RemoveInstance(ctx, req.GetName(), orchestration.InstanceRemovalOptions{
+	return &emptypb.Empty{}, s.instancesManager.RemoveInstance(ctx, req.GetInstance().GetName(), orchestration.InstanceRemovalOptions{
 		Customizations: req.GetCustomizations(),
 		DEBCache:       req.GetDEBCache(),
 		Preferences:    req.GetPreferences(),
@@ -96,4 +96,55 @@ func (s *InstancesService) GetCACert(ctx context.Context, _ *empty.Empty) (*api.
 
 func (s *InstancesService) ResetCA(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.ResetCA(ctx)
+}
+
+func (s *InstancesService) GetShell(stream api.InstancesService_GetShellServer) error {
+	ctx, cancel := context.WithCancel(stream.Context())
+
+	stdinChan, stdoutChan, stderrChan := make(chan []byte), make(chan []byte), make(chan []byte)
+	defer close(stdinChan)
+	defer close(stdoutChan)
+	defer close(stderrChan)
+
+	open := false
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			cancel()
+
+			return err
+		}
+
+		if !open {
+			go func() {
+				for chunk := range stdoutChan {
+					if err := stream.Send(&api.ShellOutputMessage{
+						Stdout: chunk,
+					}); err != nil {
+						cancel()
+
+						return
+					}
+				}
+			}()
+
+			go func() {
+				for chunk := range stderrChan {
+					if err := stream.Send(&api.ShellOutputMessage{
+						Stderr: chunk,
+					}); err != nil {
+						cancel()
+
+						return
+					}
+				}
+			}()
+
+			go s.instancesManager.GetShell(ctx, msg.Instance.GetName(), stdinChan, stdoutChan, stderrChan)
+
+			open = true
+		}
+
+		stdinChan <- msg.GetStdin()
+	}
 }

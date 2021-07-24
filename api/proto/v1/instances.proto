@@ -15,6 +15,7 @@ service InstancesService {
   rpc RemoveInstance(InstanceRemovalOptionsMessage) returns (google.protobuf.Empty);
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
   rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
 }
 
 message InstancesMessage {
@@ -36,7 +37,7 @@ message LogMessage {
 }
 
 message InstanceRemovalOptionsMessage {
-  string Name = 1;
+  InstanceReferenceMessage Instance = 1;
   bool Customizations = 2;
   bool DEBCache = 3;
   bool Preferences = 4;
@@ -46,4 +47,14 @@ message InstanceRemovalOptionsMessage {
 
 message CACertMessage {
   string Content = 1;
+}
+
+message ShellInputMessage {
+  InstanceReferenceMessage Instance = 1;
+  bytes Stdin = 2;
+}
+
+message ShellOutputMessage {
+  bytes Stdout = 1;
+  bytes Stderr = 2;
 }
