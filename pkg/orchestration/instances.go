@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/alessio/shellescape"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -58,7 +59,7 @@ func getTransferDirectory(instanceName string) (string, error) {
 }
 
 func getCommandToExecuteRefreshScript(scriptPath string) []string {
-	return []string{"bash", "-c", fmt.Sprintf(". %v && refresh", scriptPath)}
+	return []string{"bash", "-c", fmt.Sprintf(". %v && refresh", shellescape.Quote(scriptPath))}
 }
 
 type InstanceRemovalOptions struct {
