@@ -21,6 +21,7 @@ import (
 const (
 	prefix                  = "/pojde-"
 	configurationScriptsDir = "/opt/pojde/configuration"
+	caCertFile              = "ca.pem"
 )
 
 var (
@@ -47,6 +48,10 @@ func getPreferencesVolumeName(instanceName string) string {
 
 func getUserDataVolumeNames(instanceName string) []string {
 	return []string{addPrefix(instanceName + "-home-root"), addPrefix(instanceName + "-home-user")}
+}
+
+func getCAVolumeName() string {
+	return addPrefix("ca")
 }
 
 func getTransferDirectory(instanceName string) (string, error) {
@@ -84,6 +89,58 @@ func NewInstancesManager(docker *client.Client) *InstancesManager {
 	return &InstancesManager{
 		docker: docker,
 	}
+}
+
+func (m *InstancesManager) execInInstance(ctx context.Context, instanceName string, command []string) (string, string, int, error) {
+	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          command,
+	})
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	if err != nil {
+		return "", "", 0, err
+	}
+	defer resp.Close()
+
+	var outBuf, errBuf bytes.Buffer
+	done := make(chan error)
+
+	go func() {
+		_, err := stdcopy.StdCopy(&outBuf, &errBuf, resp.Reader)
+
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			return "", "", 0, err
+		}
+	case <-ctx.Done():
+		return "", "", 0, ctx.Err()
+	}
+
+	stdout, err := io.ReadAll(&outBuf)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	stderr, err := io.ReadAll(&errBuf)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	meta, err := m.docker.ContainerExecInspect(ctx, exec.ID)
+	if err != nil {
+		return "", "", 0, err
+	}
+
+	return string(stdout), string(stderr), meta.ExitCode, nil
 }
 
 func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error) {
@@ -280,54 +337,16 @@ func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName stri
 	return nil
 }
 
-func (m *InstancesManager) execInInstance(ctx context.Context, instanceName string, command []string) (string, string, int, error) {
-	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          command,
-	})
+func (m *InstancesManager) GetCACert(ctx context.Context) (string, error) {
+	volume, err := m.docker.VolumeInspect(ctx, getCAVolumeName())
 	if err != nil {
-		return "", "", 0, err
+		return "", err
 	}
 
-	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	cert, err := os.ReadFile(filepath.Join(volume.Mountpoint, caCertFile))
 	if err != nil {
-		return "", "", 0, err
-	}
-	defer resp.Close()
-
-	var outBuf, errBuf bytes.Buffer
-	done := make(chan error)
-
-	go func() {
-		_, err := stdcopy.StdCopy(&outBuf, &errBuf, resp.Reader)
-
-		done <- err
-	}()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			return "", "", 0, err
-		}
-	case <-ctx.Done():
-		return "", "", 0, ctx.Err()
+		return "", err
 	}
 
-	stdout, err := io.ReadAll(&outBuf)
-	if err != nil {
-		return "", "", 0, err
-	}
-
-	stderr, err := io.ReadAll(&errBuf)
-	if err != nil {
-		return "", "", 0, err
-	}
-
-	meta, err := m.docker.ContainerExecInspect(ctx, exec.ID)
-	if err != nil {
-		return "", "", 0, err
-	}
-
-	return string(stdout), string(stderr), meta.ExitCode, nil
+	return string(cert), err
 }
