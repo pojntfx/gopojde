@@ -6,10 +6,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alessio/shellescape"
 	"github.com/docker/docker/api/types"
@@ -353,4 +355,22 @@ func (m *InstancesManager) GetCACert(ctx context.Context) (string, error) {
 
 func (m *InstancesManager) ResetCA(ctx context.Context) error {
 	return m.docker.VolumeRemove(ctx, getCAVolumeName(), false)
+}
+
+func (m *InstancesManager) GetShell(ctx context.Context, instanceName string, stdinChan, stdoutChan, stderrChan chan []byte) {
+	stdout := time.NewTicker(time.Second).C
+	stderr := time.NewTicker(time.Millisecond * 600).C
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case chunk := <-stdinChan:
+			log.Print(string(chunk))
+		case <-stdout:
+			stdoutChan <- []byte("Hello from stdout")
+		case <-stderr:
+			stderrChan <- []byte("Hello from stderr")
+		}
+	}
 }
