@@ -14,6 +14,7 @@ service InstancesService {
   rpc RestartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc RemoveInstance(InstanceRemovalOptionsMessage) returns (google.protobuf.Empty);
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
+  rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
 }
 
 message InstancesMessage {

@@ -93,3 +93,7 @@ func (s *InstancesService) GetCACert(ctx context.Context, _ *empty.Empty) (*api.
 		Content: cert,
 	}, nil
 }
+
+func (s *InstancesService) ResetCA(ctx context.Context, _ *empty.Empty) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.ResetCA(ctx)
+}

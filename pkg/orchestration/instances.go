@@ -350,3 +350,7 @@ func (m *InstancesManager) GetCACert(ctx context.Context) (string, error) {
 
 	return string(cert), err
 }
+
+func (m *InstancesManager) ResetCA(ctx context.Context) error {
+	return m.docker.VolumeRemove(ctx, getCAVolumeName(), false)
+}
