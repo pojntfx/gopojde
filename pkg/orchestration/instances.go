@@ -6,12 +6,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/alessio/shellescape"
 	"github.com/docker/docker/api/types"
@@ -27,9 +25,10 @@ const (
 )
 
 var (
-	journalctlTail     = []string{"journalctl", "-f"}
-	getScripts         = []string{"ls", configurationScriptsDir}
-	blocklistedScripts = []string{"parameters.sh"} // TODO: Remove this as soon as scripts are no longer interactive
+	journalctlTailCmd                = []string{"journalctl", "-f"}
+	enumerateConfigurationScriptsCmd = []string{"ls", configurationScriptsDir}
+	bashCmd                          = []string{"bash"}
+	blocklistedScripts               = []string{"parameters.sh"} // TODO: Remove this as soon as scripts are no longer interactive
 )
 
 func removePrefix(instanceName string) string {
@@ -184,7 +183,7 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
-		Cmd:          journalctlTail,
+		Cmd:          journalctlTailCmd,
 	})
 	if err != nil {
 		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
@@ -214,7 +213,6 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 	go func() {
 		for {
 			header := make([]byte, 8)
-
 			if _, err := logs.Reader.Read(header); err != nil {
 				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
 
@@ -256,7 +254,7 @@ func (m *InstancesManager) RestartInstance(ctx context.Context, instanceName str
 func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions) error {
 	// Remove customization; we have to call this before removing the container as it runs inside of it
 	if options.Customizations {
-		stdout, stderr, exitCode, err := m.execInInstance(ctx, instanceName, getScripts)
+		stdout, stderr, exitCode, err := m.execInInstance(ctx, instanceName, enumerateConfigurationScriptsCmd)
 		if err != nil {
 			return err
 		}
@@ -357,20 +355,75 @@ func (m *InstancesManager) ResetCA(ctx context.Context) error {
 	return m.docker.VolumeRemove(ctx, getCAVolumeName(), false)
 }
 
-func (m *InstancesManager) GetShell(ctx context.Context, instanceName string, stdinChan, stdoutChan, stderrChan chan []byte) {
-	stdout := time.NewTicker(time.Second).C
-	stderr := time.NewTicker(time.Millisecond * 600).C
+func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), instanceName string, stdinChan, stdoutChan, stderrChan chan []byte) {
+	rawStdoutChan, rawStderrChan := make(chan []byte), make(chan []byte)
+	defer close(rawStdoutChan)
+	defer close(rawStderrChan)
+
+	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  true,
+		Tty:          true,
+		Cmd:          bashCmd,
+	})
+	if err != nil {
+		cancel(err)
+
+		return
+	}
+
+	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	if err != nil {
+		cancel(err)
+
+		return
+	}
+
+	go func() {
+		for {
+			header := make([]byte, 8)
+			if _, err := resp.Reader.Read(header); err != nil {
+				cancel(err)
+
+				return
+			}
+
+			data := make([]byte, binary.BigEndian.Uint32(header[4:]))
+			if _, err := resp.Reader.Read(data); err != nil {
+				cancel(err)
+
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				switch header[0] {
+				case 1:
+					rawStderrChan <- data
+				default:
+					rawStdoutChan <- data
+				}
+			}
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case chunk := <-stdinChan:
-			log.Print(string(chunk))
-		case <-stdout:
-			stdoutChan <- []byte("Hello from stdout")
-		case <-stderr:
-			stderrChan <- []byte("Hello from stderr")
+			if _, err := resp.Conn.Write(chunk); err != nil {
+				cancel(err)
+
+				return
+			}
+		case chunk := <-rawStderrChan:
+			stdoutChan <- chunk
+		case chunk := <-rawStdoutChan:
+			stderrChan <- chunk
 		}
 	}
 }
