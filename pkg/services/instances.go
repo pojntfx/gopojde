@@ -165,3 +165,30 @@ func (s *InstancesService) GetShell(stream api.InstancesService_GetShellServer) 
 
 	return fatalError
 }
+
+func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceConfigurationMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.ApplyInstance(
+		ctx,
+		req.GetName(),
+		orchestration.InstanceCreationFlags{
+			Isolate:         req.GetIsolate(),
+			Privileged:      req.GetPrivileged(),
+			Recreate:        req.GetRecreate(),
+			PullLatestImage: req.GetPullLatestImage(),
+		},
+		orchestration.InstanceCreationOptions{
+			RootPassword: req.GetRootPassword(),
+			UserName:     req.GetUserName(),
+			UserPassword: req.GetUserPassword(),
+
+			UserEmail:    req.GetUserEmail(),
+			UserFullName: req.GetUserFullName(),
+			SSHKey:       req.GetSSHKey(),
+
+			AdditionalIPs:     req.GetAdditionalIPs(),
+			AdditionalDomains: req.GetAdditionalDomains(),
+
+			EnabledModules:  req.GetEnabledModules(),
+			EnabledServices: req.GetEnabledServices(),
+		})
+}

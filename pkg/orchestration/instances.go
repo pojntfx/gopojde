@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -74,6 +75,29 @@ type InstanceRemovalOptions struct {
 	Preferences    bool
 	UserData       bool
 	Transfer       bool
+}
+
+type InstanceCreationFlags struct {
+	Isolate         bool
+	Privileged      bool
+	Recreate        bool
+	PullLatestImage bool
+}
+
+type InstanceCreationOptions struct {
+	RootPassword string
+	UserName     string
+	UserPassword string
+
+	UserEmail    string
+	UserFullName string
+	SSHKey       string
+
+	AdditionalIPs     []string
+	AdditionalDomains []string
+
+	EnabledModules  []string
+	EnabledServices []string
 }
 
 type Instance struct {
@@ -426,4 +450,8 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 			stderrChan <- chunk
 		}
 	}
+}
+
+func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags InstanceCreationFlags, opts InstanceCreationOptions) error {
+	return errors.New("Not yet implemented.")
 }

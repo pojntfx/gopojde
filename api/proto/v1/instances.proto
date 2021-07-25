@@ -16,6 +16,7 @@ service InstancesService {
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
   rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
+  rpc ApplyInstance(InstanceConfigurationMessage) returns (google.protobuf.Empty);
 }
 
 message InstancesMessage {
@@ -57,4 +58,27 @@ message ShellInputMessage {
 message ShellOutputMessage {
   bytes Stdout = 1;
   bytes Stderr = 2;
+}
+
+message InstanceConfigurationMessage {
+  string Name = 1;
+
+  bool Isolate = 2;
+  bool Privileged = 3;
+  bool Recreate = 4;
+  bool PullLatestImage = 5;
+
+  string RootPassword = 6;
+  string UserName = 7;
+  string UserPassword = 8;
+
+  string UserEmail = 9;
+  string UserFullName = 10;
+  string SSHKey = 13;
+
+  repeated string AdditionalIPs = 11;
+  repeated string AdditionalDomains = 12;
+
+  repeated string EnabledModules = 14;
+  repeated string EnabledServices = 15;
 }
