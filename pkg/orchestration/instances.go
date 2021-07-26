@@ -4,25 +4,33 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/alessio/shellescape"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
 	prefix                  = "/pojde-"
 	configurationScriptsDir = "/opt/pojde/configuration"
 	caCertFile              = "ca.pem"
+	pojdeDockerImage        = "pojntfx/pojde:latest"
+	firstPort               = 8000
+	portCount               = 5
+	startCmd                = "/lib/systemd/systemd"
 )
 
 var (
@@ -78,10 +86,10 @@ type InstanceRemovalOptions struct {
 }
 
 type InstanceCreationFlags struct {
+	PullLatestImage bool
+	Recreate        bool
 	Isolate         bool
 	Privileged      bool
-	Recreate        bool
-	PullLatestImage bool
 }
 
 type InstanceCreationOptions struct {
@@ -453,5 +461,129 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 }
 
 func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags InstanceCreationFlags, opts InstanceCreationOptions) error {
-	return errors.New("Not yet implemented.")
+	// Pull the latest image if specified
+	if flags.PullLatestImage {
+		if _, err := m.docker.ImagePull(ctx, pojdeDockerImage, types.ImagePullOptions{}); err != nil {
+			return err
+		}
+	}
+
+	// Check if the container exists
+	exists := true
+	if _, err := m.docker.ContainerInspect(ctx, addPrefix(name)); err != nil {
+		exists = false
+	}
+
+	// Remove the container if specified
+	if flags.Recreate && exists {
+		if err := m.RemoveInstance(ctx, name, InstanceRemovalOptions{
+			Customizations: false,
+			DEBCache:       false,
+			Preferences:    false,
+			UserData:       false,
+			Transfer:       false,
+		}); err != nil {
+			return err
+		}
+
+		exists = false
+	}
+
+	// Create the container if it doesn't alreay exist
+	if !exists {
+		hostConfig := &container.HostConfig{
+			Mounts: []mount.Mount{},
+		}
+
+		// Allow access to Docker daemon from container
+		// TODO: Set `:z` SELinux label
+		if !flags.Isolate {
+			hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+				Type:   mount.TypeBind,
+				Source: "/var/run/docker.sock",
+				Target: "/var/run/docker.sock",
+			})
+		}
+
+		// Enable privileged mode
+		if flags.Privileged {
+			hostConfig.Privileged = true
+		}
+
+		containerConfig := &container.Config{
+			Env: []string{},
+		}
+
+		// Enable systemd
+		containerConfig.Env = append(containerConfig.Env, "container=oci")
+
+		// TODO: Add `:exec` label for SELinux support
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeTmpfs,
+			Target: "/tmp",
+		})
+
+		// TODO: Add `:exec` label for SELinux support
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeTmpfs,
+			Target: "/run",
+		})
+
+		// TODO: Add `:exec` label for SELinux support
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeTmpfs,
+			Target: "/run/lock",
+		})
+
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   "/sys/fs/cgroup",
+			Target:   "/sys/fs/cgroup",
+			ReadOnly: true,
+		})
+
+		containerConfig.Cmd = strslice.StrSlice{startCmd}
+		containerConfig.Image = pojdeDockerImage
+
+		// Expose ports
+		exposedPorts := nat.PortSet{}
+		portBindings := nat.PortMap{}
+
+		for offset := 0; offset < portCount; offset++ {
+			rawPort := firstPort + offset
+			containerPort := nat.Port(fmt.Sprintf("%v/tcp", rawPort))
+
+			exposedPorts[containerPort] = struct{}{}
+			portBindings[containerPort] = []nat.PortBinding{
+				{
+					HostIP:   "0.0.0.0",
+					HostPort: strconv.Itoa(rawPort),
+				},
+				{
+					HostIP:   "::",
+					HostPort: strconv.Itoa(rawPort),
+				},
+			}
+		}
+
+		containerConfig.ExposedPorts = exposedPorts
+		hostConfig.PortBindings = portBindings
+
+		// Always restart the container
+		hostConfig.RestartPolicy = container.RestartPolicy{
+			Name: "always",
+		}
+
+		// Create the container
+		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addPrefix(name))
+		if err != nil {
+			return err
+		}
+
+		return m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+
+		// TODO: Set params with shellscape, exec the config scripts
+	}
+
+	return nil
 }

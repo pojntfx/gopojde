@@ -63,10 +63,10 @@ message ShellOutputMessage {
 message InstanceConfigurationMessage {
   string Name = 1;
 
-  bool Isolate = 2;
-  bool Privileged = 3;
-  bool Recreate = 4;
-  bool PullLatestImage = 5;
+  bool PullLatestImage = 2;
+  bool Recreate = 3;
+  bool Isolate = 4;
+  bool Privileged = 5;
 
   string RootPassword = 6;
   string UserName = 7;
