@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Install bagop
+curl -L -o /tmp/bagop "https://github.com/pojntfx/bagop/releases/latest/download/bagop.linux-$(uname -m)"
+install /tmp/bagop /usr/local/bin
+
+# Build release
+bagop -j "$(nproc)" -b bagop -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' main.go
