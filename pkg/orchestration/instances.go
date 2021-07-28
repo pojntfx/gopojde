@@ -635,9 +635,9 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			return err
 		}
 
-		return m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-
-		// TODO: Set params with shellscape, exec the config scripts
+		if err := m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			return err
+		}
 	}
 
 	return nil
