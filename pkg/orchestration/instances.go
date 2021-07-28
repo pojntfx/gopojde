@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	prefix                  = "/pojde-"
+	containerPrefix         = "/pojde-"
+	volumePrefix            = "pojde-"
 	configurationScriptsDir = "/opt/pojde/configuration"
 	caCertFile              = "ca.pem"
 	pojdeDockerImage        = "pojntfx/pojde:latest"
@@ -41,27 +42,31 @@ var (
 )
 
 func removePrefix(instanceName string) string {
-	return strings.TrimPrefix(instanceName, prefix)
+	return strings.TrimPrefix(instanceName, containerPrefix)
 }
 
-func addPrefix(instanceName string) string {
-	return prefix + instanceName
+func addContainerPrefix(instanceName string) string {
+	return containerPrefix + instanceName
+}
+
+func addVolumePrefix(instanceName string) string {
+	return volumePrefix + instanceName
 }
 
 func getDEBCacheVolumeName(instanceName string) string {
-	return addPrefix(instanceName + "-apt-cache")
+	return addVolumePrefix(instanceName + "-apt-cache")
 }
 
 func getPreferencesVolumeName(instanceName string) string {
-	return addPrefix(instanceName + "-preferences")
+	return addVolumePrefix(instanceName + "-preferences")
 }
 
 func getUserDataVolumeNames(instanceName string) []string {
-	return []string{addPrefix(instanceName + "-home-root"), addPrefix(instanceName + "-home-user")}
+	return []string{addVolumePrefix(instanceName + "-home-root"), addVolumePrefix(instanceName + "-home-user")}
 }
 
 func getCAVolumeName() string {
-	return addPrefix("ca")
+	return addVolumePrefix("ca")
 }
 
 func getTransferDirectory(instanceName string) (string, error) {
@@ -125,7 +130,7 @@ func NewInstancesManager(docker *client.Client) *InstancesManager {
 }
 
 func (m *InstancesManager) execInInstance(ctx context.Context, instanceName string, command []string) (string, string, int, error) {
-	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
 		Cmd:          command,
@@ -178,7 +183,7 @@ func (m *InstancesManager) execInInstance(ctx context.Context, instanceName stri
 
 func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error) {
 	containers, err := m.docker.ContainerList(ctx, types.ContainerListOptions{
-		Filters: filters.NewArgs(filters.Arg("name", prefix)),
+		Filters: filters.NewArgs(filters.Arg("name", containerPrefix)),
 		All:     true,
 	})
 	if err != nil {
@@ -212,7 +217,7 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 	outChan := make(chan string)
 	errChan := make(chan error)
 
-	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
 		Cmd:          journalctlTailCmd,
@@ -272,15 +277,15 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 }
 
 func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string) error {
-	return m.docker.ContainerStart(ctx, addPrefix(instanceName), types.ContainerStartOptions{})
+	return m.docker.ContainerStart(ctx, addContainerPrefix(instanceName), types.ContainerStartOptions{})
 }
 
 func (m *InstancesManager) StopInstance(ctx context.Context, instanceName string) error {
-	return m.docker.ContainerStop(ctx, addPrefix(instanceName), nil)
+	return m.docker.ContainerStop(ctx, addContainerPrefix(instanceName), nil)
 }
 
 func (m *InstancesManager) RestartInstance(ctx context.Context, instanceName string) error {
-	return m.docker.ContainerRestart(ctx, addPrefix(instanceName), nil)
+	return m.docker.ContainerRestart(ctx, addContainerPrefix(instanceName), nil)
 }
 
 func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions) error {
@@ -325,7 +330,7 @@ func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName stri
 	}
 
 	// Remove container
-	if err := m.docker.ContainerRemove(ctx, addPrefix(instanceName), types.ContainerRemoveOptions{
+	if err := m.docker.ContainerRemove(ctx, addContainerPrefix(instanceName), types.ContainerRemoveOptions{
 		Force: true,
 	}); err != nil {
 		return err
@@ -392,7 +397,7 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 	defer close(rawStdoutChan)
 	defer close(rawStderrChan)
 
-	exec, err := m.docker.ContainerExecCreate(ctx, addPrefix(instanceName), types.ExecConfig{
+	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
 		AttachStdout: true,
 		AttachStderr: true,
 		AttachStdin:  true,
@@ -470,7 +475,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 
 	// Check if the container exists
 	exists := true
-	if _, err := m.docker.ContainerInspect(ctx, addPrefix(name)); err != nil {
+	if _, err := m.docker.ContainerInspect(ctx, addContainerPrefix(name)); err != nil {
 		exists = false
 	}
 
@@ -496,7 +501,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		}
 
 		// Allow access to Docker daemon from container
-		// TODO: Set `:z` SELinux label
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		if !flags.Isolate {
 			hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 				Type:   mount.TypeBind,
@@ -511,7 +516,8 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		}
 
 		containerConfig := &container.Config{
-			Env: []string{},
+			Env:     []string{},
+			Volumes: map[string]struct{}{},
 		}
 
 		// Enable systemd
@@ -540,6 +546,60 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			Source:   "/sys/fs/cgroup",
 			Target:   "/sys/fs/cgroup",
 			ReadOnly: true,
+		})
+
+		// Add preferences
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: getPreferencesVolumeName(name),
+			Target: "/opt/pojde/preferences",
+		})
+
+		// Add CA volume
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: getCAVolumeName(),
+			Target: "/opt/pojde/ca",
+		})
+
+		// Add user data
+		userDataVolumes := getUserDataVolumeNames(name)
+
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: userDataVolumes[0],
+			Target: "/root",
+		})
+
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: userDataVolumes[1],
+			Target: "/home",
+		})
+
+		// Add DEB cache
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: getDEBCacheVolumeName(name),
+			Target: "/var/cache/apt/archives",
+		})
+
+		// Add transfer directory
+		transfer, err := getTransferDirectory(name)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: transfer,
+			Target: "/transfer",
 		})
 
 		containerConfig.Cmd = strslice.StrSlice{startCmd}
@@ -575,7 +635,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		}
 
 		// Create the container
-		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addPrefix(name))
+		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addContainerPrefix(name))
 		if err != nil {
 			return err
 		}
