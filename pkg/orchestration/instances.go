@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -32,6 +33,7 @@ const (
 	firstPort               = 8000
 	portCount               = 5
 	startCmd                = "/lib/systemd/systemd"
+	execPerm                = 0775
 )
 
 var (
@@ -501,7 +503,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		}
 
 		// Allow access to Docker daemon from container
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		if !flags.Isolate {
 			hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 				Type:   mount.TypeBind,
@@ -523,22 +524,22 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		// Enable systemd
 		containerConfig.Env = append(containerConfig.Env, "container=oci")
 
-		// TODO: Add `:exec` label for SELinux support
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
-			Type:   mount.TypeTmpfs,
-			Target: "/tmp",
+			Type:         mount.TypeTmpfs,
+			Target:       "/tmp",
+			TmpfsOptions: &mount.TmpfsOptions{Mode: fs.FileMode(execPerm)},
 		})
 
-		// TODO: Add `:exec` label for SELinux support
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
-			Type:   mount.TypeTmpfs,
-			Target: "/run",
+			Type:         mount.TypeTmpfs,
+			Target:       "/run",
+			TmpfsOptions: &mount.TmpfsOptions{Mode: fs.FileMode(execPerm)},
 		})
 
-		// TODO: Add `:exec` label for SELinux support
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
-			Type:   mount.TypeTmpfs,
-			Target: "/run/lock",
+			Type:         mount.TypeTmpfs,
+			Target:       "/run/lock",
+			TmpfsOptions: &mount.TmpfsOptions{Mode: fs.FileMode(execPerm)},
 		})
 
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
@@ -549,7 +550,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		})
 
 		// Add preferences
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: getPreferencesVolumeName(name),
@@ -557,7 +557,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		})
 
 		// Add CA volume
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: getCAVolumeName(),
@@ -567,14 +566,12 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		// Add user data
 		userDataVolumes := getUserDataVolumeNames(name)
 
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: userDataVolumes[0],
 			Target: "/root",
 		})
 
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: userDataVolumes[1],
@@ -582,7 +579,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		})
 
 		// Add DEB cache
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: getDEBCacheVolumeName(name),
@@ -595,7 +591,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			return err
 		}
 
-		// TODO: Set `:z` SELinux label (see https://stackoverflow.com/questions/54177064/volume-mount-option-z-using-docker-golang-library)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeBind,
 			Source: transfer,
