@@ -32,7 +32,7 @@ const (
 	configurationScriptsDir    = "/opt/pojde/configuration"
 	caCertFile                 = "ca.pem"
 	pojdeDockerImage           = "pojntfx/pojde:latest"
-	firstPort                  = 8000
+	firstInternalPort          = 8000
 	portCount                  = 5
 	startCmd                   = "/lib/systemd/systemd"
 	execPerm                   = 0775
@@ -102,6 +102,7 @@ type InstanceRemovalOptions struct {
 }
 
 type InstanceCreationFlags struct {
+	StartPort       int32
 	PullLatestImage bool
 	Recreate        bool
 	Isolate         bool
@@ -614,18 +615,20 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		portBindings := nat.PortMap{}
 
 		for offset := 0; offset < portCount; offset++ {
-			rawPort := firstPort + offset
-			containerPort := nat.Port(fmt.Sprintf("%v/tcp", rawPort))
+			rawInternalPort := firstInternalPort + offset
+			rawExternalPort := int(flags.StartPort) + offset
+
+			containerPort := nat.Port(fmt.Sprintf("%v/tcp", rawInternalPort))
 
 			exposedPorts[containerPort] = struct{}{}
 			portBindings[containerPort] = []nat.PortBinding{
 				{
 					HostIP:   "0.0.0.0",
-					HostPort: strconv.Itoa(rawPort),
+					HostPort: strconv.Itoa(rawExternalPort),
 				},
 				{
 					HostIP:   "::",
-					HostPort: strconv.Itoa(rawPort),
+					HostPort: strconv.Itoa(rawExternalPort),
 				},
 			}
 		}
