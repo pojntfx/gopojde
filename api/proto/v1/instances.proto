@@ -35,7 +35,7 @@ message InstanceReferenceMessage {
 }
 
 message LogMessage {
-  string Chunk = 1;
+  bytes Chunk = 1;
 }
 
 message InstanceRemovalOptionsMessage {

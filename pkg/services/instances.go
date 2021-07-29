@@ -47,7 +47,11 @@ func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*a
 
 func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api.InstancesService_GetLogsServer) error {
 	logChan, errChan, handle := s.instancesManager.GetLogs(stream.Context(), req.GetName())
-	defer handle.Close()
+	defer func() {
+		if handle != nil {
+			handle.Close()
+		}
+	}()
 
 	for {
 		select {
