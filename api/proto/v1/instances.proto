@@ -18,6 +18,7 @@ service InstancesService {
   rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
   rpc ApplyInstance(InstanceConfigurationMessage) returns (stream ShellOutputMessage);
   rpc GetInstanceConfig(InstanceReferenceMessage) returns (InstanceOptionsMessage);
+  rpc GetSSHKeys(InstanceReferenceMessage) returns (SSHKeysMessage);
 }
 
 message InstanceSummariesMessage {
@@ -83,4 +84,8 @@ message InstanceOptionsMessage {
 
   repeated string EnabledModules = 9;
   repeated string EnabledServices = 10;
+}
+
+message SSHKeysMessage {
+  repeated string SSHKeys = 1;
 }
