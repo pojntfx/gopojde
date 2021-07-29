@@ -64,12 +64,13 @@ message ShellOutputMessage {
 message InstanceConfigurationMessage {
   string Name = 1;
 
-  bool PullLatestImage = 2;
-  bool Recreate = 3;
-  bool Isolate = 4;
-  bool Privileged = 5;
+  int32 StartPort = 2;
+  bool PullLatestImage = 3;
+  bool Recreate = 4;
+  bool Isolate = 5;
+  bool Privileged = 6;
 
-  InstanceOptionsMessage InstanceOptions = 6;
+  InstanceOptionsMessage InstanceOptions = 7;
 }
 
 message InstanceOptionsMessage {

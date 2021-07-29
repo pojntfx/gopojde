@@ -179,6 +179,7 @@ func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceC
 			ctx,
 			req.GetName(),
 			orchestration.InstanceCreationFlags{
+				StartPort:       req.GetStartPort(),
 				Isolate:         req.GetIsolate(),
 				Privileged:      req.GetPrivileged(),
 				Recreate:        req.GetRecreate(),
