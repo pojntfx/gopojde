@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -27,7 +28,7 @@ type EnvConfig struct {
 	AdditionalDomains []string
 
 	EnabledModules  []string
-	EnabledServices []string // <- DON'T FORGET THESE!
+	EnabledServices []string
 }
 
 func NewConfig() *EnvConfig {
@@ -62,7 +63,44 @@ func (c *EnvConfig) Read(envFileContents string) error {
 		return errors.New("could not get password from config file")
 	}
 
-	// TODO: Add rest of parameters
+	c.UserEmail, ok = env[getWithPrefix("EMAIL")]
+	if !ok {
+		return errors.New("could not get email from config file")
+	}
+
+	c.UserFullName, ok = env[getWithPrefix("FULL_NAME")]
+	if !ok {
+		return errors.New("could not get full name from config file")
+	}
+
+	c.SSHKey, ok = env[getWithPrefix("SSH_KEY_URL")]
+	if !ok {
+		return errors.New("could not get SSH key from config file")
+	}
+
+	additionalIPs, ok := env[getWithPrefix("IP")]
+	if !ok {
+		return errors.New("could not get additional IPs from config file")
+	}
+	c.AdditionalIPs = strings.Split(additionalIPs, " ")
+
+	additionalDomains, ok := env[getWithPrefix("DOMAIN")]
+	if !ok {
+		return errors.New("could not get domains from config file")
+	}
+	c.AdditionalDomains = strings.Split(additionalDomains, " ")
+
+	enabledModules, ok := env[getWithPrefix("MODULES")]
+	if !ok {
+		return errors.New("could not get modules from config file")
+	}
+	c.EnabledModules = strings.Split(enabledModules, " ")
+
+	enabledServices, ok := env[getWithPrefix("SERVICES")]
+	if !ok {
+		return errors.New("could not get services from config file")
+	}
+	c.EnabledServices = strings.Split(enabledServices, " ")
 
 	return nil
 }
