@@ -689,3 +689,46 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 
 	return nil
 }
+
+func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (InstanceCreationOptions, error) {
+	// Copy the config file from the container
+	// path.Join is used here instead of filepath.Join because the container uses "/" as the separator exclusively
+	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(name), path.Join(preferencesDirInContainer, preferencesFileInContainer))
+	if err != nil {
+		return InstanceCreationOptions{}, err
+	}
+
+	// Read the config file into a buffer
+	tr := tar.NewReader(r)
+	var buf bytes.Buffer
+
+	if _, err := tr.Next(); err != nil {
+		return InstanceCreationOptions{}, err
+	}
+
+	if _, err := io.Copy(&buf, tr); err != nil {
+		return InstanceCreationOptions{}, err
+	}
+
+	// Parse the config file
+	cfg := config.NewConfig()
+	if err := cfg.Unmarshal(buf.String()); err != nil {
+		return InstanceCreationOptions{}, err
+	}
+
+	return InstanceCreationOptions{
+		RootPassword: cfg.RootPassword,
+		UserName:     cfg.UserEmail,
+		UserPassword: cfg.UserPassword,
+
+		UserEmail:    cfg.UserEmail,
+		UserFullName: cfg.UserFullName,
+		SSHKeyURL:    cfg.SSHKeyURL,
+
+		AdditionalIPs:     cfg.AdditionalIPs,
+		AdditionalDomains: cfg.AdditionalDomains,
+
+		EnabledModules:  cfg.EnabledModules,
+		EnabledServices: cfg.EnabledServices,
+	}, nil
+}

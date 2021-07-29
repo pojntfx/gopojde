@@ -23,22 +23,24 @@ func NewInstancesService(instancesManager *orchestration.InstancesManager) *Inst
 	}
 }
 
-func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*api.InstancesMessage, error) {
+func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*api.InstanceSummariesMessage, error) {
 	instances, err := s.instancesManager.GetInstances(ctx)
 	if err != nil {
-		return &api.InstancesMessage{}, err
+		return &api.InstanceSummariesMessage{}, err
 	}
 
-	out := []*api.InstanceMessage{}
+	out := []*api.InstanceSummaryMessage{}
 	for _, instance := range instances {
-		out = append(out, &api.InstanceMessage{
-			Name:   instance.Name,
+		out = append(out, &api.InstanceSummaryMessage{
+			Instance: &api.InstanceReferenceMessage{
+				Name: instance.Name,
+			},
 			Ports:  instance.Ports,
 			Status: instance.Status,
 		})
 	}
 
-	return &api.InstancesMessage{
+	return &api.InstanceSummariesMessage{
 		Instances: out,
 	}, nil
 }
@@ -166,29 +168,54 @@ func (s *InstancesService) GetShell(stream api.InstancesService_GetShellServer) 
 	return fatalError
 }
 
-func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceConfigurationMessage) (*empty.Empty, error) {
-	return &emptypb.Empty{}, s.instancesManager.ApplyInstance(
-		ctx,
-		req.GetName(),
-		orchestration.InstanceCreationFlags{
-			Isolate:         req.GetIsolate(),
-			Privileged:      req.GetPrivileged(),
-			Recreate:        req.GetRecreate(),
-			PullLatestImage: req.GetPullLatestImage(),
-		},
-		orchestration.InstanceCreationOptions{
-			RootPassword: req.GetRootPassword(),
-			UserName:     req.GetUserName(),
-			UserPassword: req.GetUserPassword(),
+func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceConfigurationMessage) (*api.InstanceReferenceMessage, error) {
+	return &api.InstanceReferenceMessage{
+			Name: req.GetName(),
+		}, s.instancesManager.ApplyInstance(
+			ctx,
+			req.GetName(),
+			orchestration.InstanceCreationFlags{
+				Isolate:         req.GetIsolate(),
+				Privileged:      req.GetPrivileged(),
+				Recreate:        req.GetRecreate(),
+				PullLatestImage: req.GetPullLatestImage(),
+			},
+			orchestration.InstanceCreationOptions{
+				RootPassword: req.GetInstanceOptions().GetRootPassword(),
+				UserName:     req.GetInstanceOptions().GetUserName(),
+				UserPassword: req.GetInstanceOptions().GetUserPassword(),
 
-			UserEmail:    req.GetUserEmail(),
-			UserFullName: req.GetUserFullName(),
-			SSHKeyURL:    req.GetSSHKeyURL(),
+				UserEmail:    req.GetInstanceOptions().GetUserEmail(),
+				UserFullName: req.GetInstanceOptions().GetUserFullName(),
+				SSHKeyURL:    req.GetInstanceOptions().GetSSHKeyURL(),
 
-			AdditionalIPs:     req.GetAdditionalIPs(),
-			AdditionalDomains: req.GetAdditionalDomains(),
+				AdditionalIPs:     req.GetInstanceOptions().GetAdditionalIPs(),
+				AdditionalDomains: req.GetInstanceOptions().GetAdditionalDomains(),
 
-			EnabledModules:  req.GetEnabledModules(),
-			EnabledServices: req.GetEnabledServices(),
-		})
+				EnabledModules:  req.GetInstanceOptions().GetEnabledModules(),
+				EnabledServices: req.GetInstanceOptions().GetEnabledServices(),
+			})
+}
+
+func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.InstanceReferenceMessage) (*api.InstanceOptionsMessage, error) {
+	cfg, err := s.instancesManager.GetInstanceConfig(ctx, req.GetName())
+	if err != nil {
+		return &api.InstanceOptionsMessage{}, err
+	}
+
+	return &api.InstanceOptionsMessage{
+		RootPassword: cfg.RootPassword,
+		UserName:     cfg.UserEmail,
+		UserPassword: cfg.UserPassword,
+
+		UserEmail:    cfg.UserEmail,
+		UserFullName: cfg.UserFullName,
+		SSHKeyURL:    cfg.SSHKeyURL,
+
+		AdditionalIPs:     cfg.AdditionalIPs,
+		AdditionalDomains: cfg.AdditionalDomains,
+
+		EnabledModules:  cfg.EnabledModules,
+		EnabledServices: cfg.EnabledServices,
+	}, nil
 }

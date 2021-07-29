@@ -111,13 +111,21 @@ func (c *EnvConfig) Unmarshal(envFileContents string) error {
 	if !ok {
 		return errors.New("could not get additional IPs from config file")
 	}
-	c.AdditionalIPs = strings.Split(additionalIPs, " ")
+	for _, ip := range strings.Split(additionalIPs, " ") {
+		if !(strings.TrimSpace(ip) == "") {
+			c.AdditionalIPs = append(c.AdditionalIPs, ip)
+		}
+	}
 
 	additionalDomains, ok := env[getWithPrefix(domainKey)]
 	if !ok {
 		return errors.New("could not get domains from config file")
 	}
-	c.AdditionalDomains = strings.Split(additionalDomains, " ")
+	for _, ip := range strings.Split(additionalDomains, " ") {
+		if !(strings.TrimSpace(ip) == "") {
+			c.AdditionalDomains = append(c.AdditionalDomains, ip)
+		}
+	}
 
 	// Modules and services
 	enabledModules, ok := env[getWithPrefix(modulesKey)]
@@ -125,14 +133,20 @@ func (c *EnvConfig) Unmarshal(envFileContents string) error {
 		return errors.New("could not get modules from config file")
 	}
 	for _, module := range strings.Split(enabledModules, " ") {
-		c.EnabledModules = append(c.EnabledModules, stripPrefixFromModuleName(module))
+		if !(strings.TrimSpace(module) == "") {
+			c.EnabledModules = append(c.EnabledModules, module)
+		}
 	}
 
-	enabledServices, ok := env[getWithPrefix(modulesKey)]
+	enabledServices, ok := env[getWithPrefix(servicesKey)]
 	if !ok {
 		return errors.New("could not get services from config file")
 	}
-	c.EnabledServices = strings.Split(enabledServices, " ")
+	for _, service := range strings.Split(enabledServices, " ") {
+		if !(strings.TrimSpace(service) == "") {
+			c.EnabledServices = append(c.EnabledServices, service)
+		}
+	}
 
 	return nil
 }

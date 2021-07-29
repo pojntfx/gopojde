@@ -7,7 +7,7 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/pojntfx/pojde/pkg/api/proto/v1";
 
 service InstancesService {
-  rpc GetInstances(google.protobuf.Empty) returns (InstancesMessage);
+  rpc GetInstances(google.protobuf.Empty) returns (InstanceSummariesMessage);
   rpc GetLogs(InstanceReferenceMessage) returns (stream LogMessage);
   rpc StartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc StopInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
@@ -16,15 +16,16 @@ service InstancesService {
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
   rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
-  rpc ApplyInstance(InstanceConfigurationMessage) returns (google.protobuf.Empty);
+  rpc ApplyInstance(InstanceConfigurationMessage) returns (InstanceReferenceMessage);
+  rpc GetInstanceConfig(InstanceReferenceMessage) returns (InstanceOptionsMessage);
 }
 
-message InstancesMessage {
-  repeated InstanceMessage instances = 1;
+message InstanceSummariesMessage {
+  repeated InstanceSummaryMessage instances = 1;
 }
 
-message InstanceMessage {
-  string Name = 1;
+message InstanceSummaryMessage {
+  InstanceReferenceMessage Instance = 1;
   repeated int32 Ports = 2;
   string Status = 3;
 }
@@ -68,17 +69,21 @@ message InstanceConfigurationMessage {
   bool Isolate = 4;
   bool Privileged = 5;
 
-  string RootPassword = 6;
-  string UserName = 7;
-  string UserPassword = 8;
+  InstanceOptionsMessage InstanceOptions = 6;
+}
 
-  string UserEmail = 9;
-  string UserFullName = 10;
-  string SSHKeyURL = 11;
+message InstanceOptionsMessage {
+  string RootPassword = 1;
+  string UserName = 2;
+  string UserPassword = 3;
 
-  repeated string AdditionalIPs = 12;
-  repeated string AdditionalDomains = 13;
+  string UserEmail = 4;
+  string UserFullName = 5;
+  string SSHKeyURL = 6;
 
-  repeated string EnabledModules = 14;
-  repeated string EnabledServices = 15;
+  repeated string AdditionalIPs = 7;
+  repeated string AdditionalDomains = 8;
+
+  repeated string EnabledModules = 9;
+  repeated string EnabledServices = 10;
 }
