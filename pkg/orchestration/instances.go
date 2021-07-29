@@ -38,6 +38,7 @@ const (
 	execPerm                   = 0775
 	preferencesDirInContainer  = "/opt/pojde/preferences"
 	preferencesFileInContainer = "preferences.sh"
+	sshKeysPath                = "/root/.ssh/authorized_keys"
 )
 
 var (
@@ -772,12 +773,12 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 	}
 }
 
-func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (InstanceCreationOptions, error) {
+func (m *InstancesManager) getFileContentsFromInstance(ctx context.Context, instanceName string, path string) (string, error) {
 	// Copy the config file from the container
 	// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
-	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(name), path.Join(preferencesDirInContainer, preferencesFileInContainer))
+	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(instanceName), path)
 	if err != nil {
-		return InstanceCreationOptions{}, err
+		return "", err
 	}
 
 	// Read the config file into a buffer
@@ -785,16 +786,26 @@ func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (
 	var buf bytes.Buffer
 
 	if _, err := tr.Next(); err != nil {
-		return InstanceCreationOptions{}, err
+		return "", err
 	}
 
 	if _, err := io.Copy(&buf, tr); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func (m *InstancesManager) GetInstanceConfig(ctx context.Context, instanceName string) (InstanceCreationOptions, error) {
+	// Get the config file content
+	cfgFileContent, err := m.getFileContentsFromInstance(ctx, instanceName, path.Join(preferencesDirInContainer, preferencesFileInContainer))
+	if err != nil {
 		return InstanceCreationOptions{}, err
 	}
 
 	// Parse the config file
 	cfg := config.NewConfig()
-	if err := cfg.Unmarshal(buf.String()); err != nil {
+	if err := cfg.Unmarshal(cfgFileContent); err != nil {
 		return InstanceCreationOptions{}, err
 	}
 
@@ -813,4 +824,15 @@ func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (
 		EnabledModules:  cfg.EnabledModules,
 		EnabledServices: cfg.EnabledServices,
 	}, nil
+}
+
+func (m *InstancesManager) GetSSHKeys(ctx context.Context, instanceName string) ([]string, error) {
+	// Get the authorized keys file
+	authorizedKeysFileContent, err := m.getFileContentsFromInstance(ctx, instanceName, sshKeysPath)
+	if err != nil {
+		return []string{}, err
+	}
+
+	// Parse the authorized keys
+	return strings.Split(strings.TrimSpace(authorizedKeysFileContent), "\n"), nil
 }

@@ -287,3 +287,14 @@ func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.Insta
 		EnabledServices: cfg.EnabledServices,
 	}, nil
 }
+
+func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceReferenceMessage) (*api.SSHKeysMessage, error) {
+	sshKeys, err := s.instancesManager.GetSSHKeys(ctx, req.GetName())
+	if err != nil {
+		return &api.SSHKeysMessage{}, err
+	}
+
+	return &api.SSHKeysMessage{
+		SSHKeys: sshKeys,
+	}, nil
+}
