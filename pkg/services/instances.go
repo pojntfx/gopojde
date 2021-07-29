@@ -194,34 +194,75 @@ func (s *InstancesService) GetShell(stream api.InstancesService_GetShellServer) 
 	return fatalError
 }
 
-func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceConfigurationMessage) (*api.InstanceReferenceMessage, error) {
-	return &api.InstanceReferenceMessage{
-			Name: req.GetName(),
-		}, s.instancesManager.ApplyInstance(
-			ctx,
-			req.GetName(),
-			orchestration.InstanceCreationFlags{
-				StartPort:       req.GetStartPort(),
-				Isolate:         req.GetIsolate(),
-				Privileged:      req.GetPrivileged(),
-				Recreate:        req.GetRecreate(),
-				PullLatestImage: req.GetPullLatestImage(),
-			},
-			orchestration.InstanceCreationOptions{
-				RootPassword: req.GetInstanceOptions().GetRootPassword(),
-				UserName:     req.GetInstanceOptions().GetUserName(),
-				UserPassword: req.GetInstanceOptions().GetUserPassword(),
+func (s *InstancesService) ApplyInstance(req *api.InstanceConfigurationMessage, stream api.InstancesService_ApplyInstanceServer) error {
+	var fatalError error
+	ctx, _cancel := context.WithCancel(stream.Context())
+	cancel := func(err error) {
+		fatalError = err
 
-				UserEmail:    req.GetInstanceOptions().GetUserEmail(),
-				UserFullName: req.GetInstanceOptions().GetUserFullName(),
-				SSHKeyURL:    req.GetInstanceOptions().GetSSHKeyURL(),
+		_cancel()
+	}
 
-				AdditionalIPs:     req.GetInstanceOptions().GetAdditionalIPs(),
-				AdditionalDomains: req.GetInstanceOptions().GetAdditionalDomains(),
+	stdoutChan, stderrChan := make(chan []byte), make(chan []byte)
+	defer close(stdoutChan)
+	defer close(stderrChan)
 
-				EnabledModules:  req.GetInstanceOptions().GetEnabledModules(),
-				EnabledServices: req.GetInstanceOptions().GetEnabledServices(),
-			})
+	go func() {
+		for chunk := range stdoutChan {
+			if err := stream.Send(&api.ShellOutputMessage{
+				Stdout: chunk,
+			}); err != nil {
+				cancel(err)
+
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for chunk := range stderrChan {
+			if err := stream.Send(&api.ShellOutputMessage{
+				Stderr: chunk,
+			}); err != nil {
+				cancel(err)
+
+				return
+			}
+		}
+	}()
+
+	go s.instancesManager.ApplyInstance(
+		ctx,
+		cancel,
+		req.GetName(),
+		stdoutChan,
+		stderrChan,
+		orchestration.InstanceCreationFlags{
+			StartPort:       req.GetStartPort(),
+			Isolate:         req.GetIsolate(),
+			Privileged:      req.GetPrivileged(),
+			Recreate:        req.GetRecreate(),
+			PullLatestImage: req.GetPullLatestImage(),
+		},
+		orchestration.InstanceCreationOptions{
+			RootPassword: req.GetInstanceOptions().GetRootPassword(),
+			UserName:     req.GetInstanceOptions().GetUserName(),
+			UserPassword: req.GetInstanceOptions().GetUserPassword(),
+
+			UserEmail:    req.GetInstanceOptions().GetUserEmail(),
+			UserFullName: req.GetInstanceOptions().GetUserFullName(),
+			SSHKeyURL:    req.GetInstanceOptions().GetSSHKeyURL(),
+
+			AdditionalIPs:     req.GetInstanceOptions().GetAdditionalIPs(),
+			AdditionalDomains: req.GetInstanceOptions().GetAdditionalDomains(),
+
+			EnabledModules:  req.GetInstanceOptions().GetEnabledModules(),
+			EnabledServices: req.GetInstanceOptions().GetEnabledServices(),
+		})
+
+	<-ctx.Done()
+
+	return fatalError
 }
 
 func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.InstanceReferenceMessage) (*api.InstanceOptionsMessage, error) {

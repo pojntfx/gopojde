@@ -16,7 +16,7 @@ service InstancesService {
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
   rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
-  rpc ApplyInstance(InstanceConfigurationMessage) returns (InstanceReferenceMessage);
+  rpc ApplyInstance(InstanceConfigurationMessage) returns (stream ShellOutputMessage);
   rpc GetInstanceConfig(InstanceReferenceMessage) returns (InstanceOptionsMessage);
 }
 

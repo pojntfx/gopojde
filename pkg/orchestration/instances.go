@@ -193,7 +193,7 @@ func (m *InstancesManager) execInInstance(ctx context.Context, instanceName stri
 	return string(stdout), string(stderr), meta.ExitCode, nil
 }
 
-func (m *InstancesManager) execInInstanceStreaming(ctx context.Context, cancel func(error), instanceName string, command []string, stdoutChan, stderrChan chan []byte) {
+func (m *InstancesManager) execInInstanceStreaming(ctx context.Context, cancel func(error), instanceName string, command []string, stdoutChan, stderrChan chan []byte) (int, error) {
 	rawStdoutChan, rawStderrChan := make(chan []byte), make(chan []byte)
 	defer close(rawStdoutChan)
 	defer close(rawStderrChan)
@@ -206,20 +206,28 @@ func (m *InstancesManager) execInInstanceStreaming(ctx context.Context, cancel f
 	if err != nil {
 		cancel(err)
 
-		return
+		return 0, err
 	}
 
 	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
 	if err != nil {
 		cancel(err)
 
-		return
+		return 0, err
 	}
 
+	done := make(chan struct{})
 	go func() {
 		for {
 			header := make([]byte, 8)
-			if _, err := resp.Reader.Read(header); err != nil {
+			if n, err := resp.Reader.Read(header); err != nil {
+				// EOF
+				if n == 0 {
+					done <- struct{}{}
+
+					return
+				}
+
 				cancel(err)
 
 				return
@@ -248,8 +256,20 @@ func (m *InstancesManager) execInInstanceStreaming(ctx context.Context, cancel f
 
 	for {
 		select {
+		case <-done:
+			meta, err := m.docker.ContainerExecInspect(ctx, exec.ID)
+			if err != nil {
+				return 0, err
+			}
+
+			return meta.ExitCode, err
 		case <-ctx.Done():
-			return
+			meta, err := m.docker.ContainerExecInspect(ctx, exec.ID)
+			if err != nil {
+				return 0, err
+			}
+
+			return meta.ExitCode, err
 		case chunk := <-rawStderrChan:
 			stdoutChan <- chunk
 		case chunk := <-rawStdoutChan:
@@ -291,7 +311,18 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 }
 
 func (m *InstancesManager) GetLogs(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte) {
-	m.execInInstanceStreaming(ctx, cancel, instanceName, journalctlTailCmd, stdoutChan, stderrChan)
+	exitCode, err := m.execInInstanceStreaming(ctx, cancel, instanceName, journalctlTailCmd, stdoutChan, stderrChan)
+	if err != nil {
+		cancel(err)
+
+		return
+	}
+
+	if exitCode != 0 {
+		cancel(fmt.Errorf("could not get logs from instance: Non-zero exit code %v", exitCode))
+
+		return
+	}
 }
 
 func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string) error {
@@ -483,30 +514,34 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 	}
 }
 
-func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags InstanceCreationFlags, opts InstanceCreationOptions) error {
+func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, flags InstanceCreationFlags, opts InstanceCreationOptions) {
 	// Pull the latest image if specified
 	if flags.PullLatestImage {
 		if _, err := m.docker.ImagePull(ctx, pojdeDockerImage, types.ImagePullOptions{}); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 	}
 
 	// Check if the container exists
 	exists := true
-	if _, err := m.docker.ContainerInspect(ctx, addContainerPrefix(name)); err != nil {
+	if _, err := m.docker.ContainerInspect(ctx, addContainerPrefix(instanceName)); err != nil {
 		exists = false
 	}
 
 	// Remove the container if specified
 	if flags.Recreate && exists {
-		if err := m.RemoveInstance(ctx, name, InstanceRemovalOptions{
+		if err := m.RemoveInstance(ctx, instanceName, InstanceRemovalOptions{
 			Customizations: false,
 			DEBCache:       false,
 			Preferences:    false,
 			UserData:       false,
 			Transfer:       false,
 		}); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		exists = false
@@ -568,7 +603,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		// Add preferences
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
-			Source: getPreferencesVolumeName(name),
+			Source: getPreferencesVolumeName(instanceName),
 			Target: "/opt/pojde/preferences",
 		})
 
@@ -580,7 +615,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		})
 
 		// Add user data
-		userDataVolumes := getUserDataVolumeNames(name)
+		userDataVolumes := getUserDataVolumeNames(instanceName)
 
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
@@ -597,14 +632,16 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		// Add DEB cache
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
-			Source: getDEBCacheVolumeName(name),
+			Source: getDEBCacheVolumeName(instanceName),
 			Target: "/var/cache/apt/archives",
 		})
 
 		// Add transfer directory
-		transfer, err := getTransferDirectory(name)
+		transfer, err := getTransferDirectory(instanceName)
 		if err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
@@ -648,14 +685,18 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		}
 
 		// Create the container
-		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addContainerPrefix(name))
+		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addContainerPrefix(instanceName))
 		if err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		// Start the container
 		if err := m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		// Prepare the config file
@@ -685,19 +726,27 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			Mode: 664,
 			Size: int64(len(configContents)),
 		}); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 		if _, err := tw.Write([]byte(configContents)); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		if err := tw.Close(); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		// Copy the config file to the container
 		if err := m.docker.CopyToContainer(ctx, resp.ID, preferencesDirInContainer, &buf, types.CopyToContainerOptions{}); err != nil {
-			return err
+			cancel(err)
+
+			return
 		}
 
 		// Run the config scripts
@@ -705,18 +754,22 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
 			scriptPath := path.Join(configurationScriptsDir, script+".sh")
 
-			stdout, stderr, exitCode, err := m.execInInstance(ctx, name, getCommandToExecuteUpgradeScript(scriptPath))
+			exitCode, err := m.execInInstanceStreaming(ctx, cancel, instanceName, getCommandToExecuteUpgradeScript(scriptPath), stdoutChan, stderrChan)
 			if err != nil {
-				return err
+				cancel(err)
+
+				return
 			}
 
 			if exitCode != 0 {
-				return fmt.Errorf("could not run configuration scripts in instance: Non-zero exit code %v: stdout=%v, stderr=%v", exitCode, stdout, stderr)
+				cancel(fmt.Errorf("could not run configuration scripts in instance: Non-zero exit code %v", exitCode))
+
+				return
 			}
 		}
-	}
 
-	return nil
+		cancel(nil)
+	}
 }
 
 func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (InstanceCreationOptions, error) {
