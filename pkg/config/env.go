@@ -3,8 +3,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/alessio/shellescape"
 	"github.com/joho/godotenv"
 )
 
@@ -147,7 +149,7 @@ func (c *EnvConfig) Unmarshal(envFileContents string) error {
 	return nil
 }
 
-func (c *EnvConfig) Marshal() (string, error) {
+func (c *EnvConfig) Marshal() string {
 	env := map[string]string{}
 
 	// Basic configuration parameters
@@ -172,5 +174,12 @@ func (c *EnvConfig) Marshal() (string, error) {
 		env[strings.ToUpper("MODULE_"+serviceName+"_ENABLED")] = "true"
 	}
 
-	return godotenv.Marshal(env)
+	// Marshal
+	lines := make([]string, 0, len(env))
+	for k, v := range env {
+		lines = append(lines, fmt.Sprintf(`export %s="%s"`, k, shellescape.Quote(v)))
+	}
+	sort.Strings(lines)
+
+	return strings.Join(lines, "\n")
 }
