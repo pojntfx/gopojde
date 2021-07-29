@@ -8,7 +8,7 @@ option go_package = "github.com/pojntfx/pojde/pkg/api/proto/v1";
 
 service InstancesService {
   rpc GetInstances(google.protobuf.Empty) returns (InstanceSummariesMessage);
-  rpc GetLogs(InstanceReferenceMessage) returns (stream LogMessage);
+  rpc GetLogs(InstanceReferenceMessage) returns (stream ShellOutputMessage);
   rpc StartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc StopInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
   rpc RestartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
@@ -32,10 +32,6 @@ message InstanceSummaryMessage {
 
 message InstanceReferenceMessage {
   string Name = 1;
-}
-
-message LogMessage {
-  bytes Chunk = 1;
 }
 
 message InstanceRemovalOptionsMessage {
