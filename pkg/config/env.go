@@ -20,7 +20,7 @@ const (
 	passwordKey     = "PASSWORD"
 	emailKey        = "EMAIL"
 	fullNameKey     = "FULL_NAME"
-	sshKeyKey       = "SSH_KEY_URL"
+	sshKeyURLKey    = "SSH_KEY_URL"
 	ipKey           = "IP"
 	domainKey       = "DOMAIN"
 	modulesKey      = "MODULES"
@@ -31,14 +31,14 @@ func getWithPrefix(key string) string {
 	return prefix + key
 }
 
-func getSuffixForModuleName(moduleName string) (string, error) {
+func stripPrefixFromModuleName(moduleName string) string {
 	parts := strings.Split(moduleName, ".")
 
 	if len(parts) < 2 {
-		return "", fmt.Errorf(`"." character is missing in module name`)
+		return parts[0]
 	}
 
-	return parts[1], nil
+	return parts[1]
 }
 
 type EnvConfig struct {
@@ -48,7 +48,7 @@ type EnvConfig struct {
 
 	UserEmail    string
 	UserFullName string
-	SSHKey       string
+	SSHKeyURL    string
 
 	AdditionalIPs     []string
 	AdditionalDomains []string
@@ -101,7 +101,7 @@ func (c *EnvConfig) Unmarshal(envFileContents string) error {
 		return errors.New("could not get full name from config file")
 	}
 
-	c.SSHKey, ok = env[getWithPrefix(sshKeyKey)]
+	c.SSHKeyURL, ok = env[getWithPrefix(sshKeyURLKey)]
 	if !ok {
 		return errors.New("could not get SSH key from config file")
 	}
@@ -125,26 +125,14 @@ func (c *EnvConfig) Unmarshal(envFileContents string) error {
 		return errors.New("could not get modules from config file")
 	}
 	for _, module := range strings.Split(enabledModules, " ") {
-		enabledModule, err := getSuffixForModuleName(module)
-		if err != nil {
-			return err
-		}
-
-		c.EnabledModules = append(c.EnabledModules, enabledModule)
+		c.EnabledModules = append(c.EnabledModules, stripPrefixFromModuleName(module))
 	}
 
 	enabledServices, ok := env[getWithPrefix(modulesKey)]
 	if !ok {
 		return errors.New("could not get services from config file")
 	}
-	for _, service := range strings.Split(enabledServices, " ") {
-		enabledService, err := getSuffixForModuleName(service)
-		if err != nil {
-			return err
-		}
-
-		c.EnabledServices = append(c.EnabledServices, enabledService)
-	}
+	c.EnabledServices = strings.Split(enabledServices, " ")
 
 	return nil
 }
@@ -158,7 +146,7 @@ func (c *EnvConfig) Marshal() string {
 	env[passwordKey] = c.UserPassword
 	env[emailKey] = c.UserEmail
 	env[fullNameKey] = c.UserFullName
-	env[sshKeyKey] = c.SSHKey
+	env[sshKeyURLKey] = c.SSHKeyURL
 
 	// Addition IPs and domains
 	env[ipKey] = strings.Join(c.AdditionalIPs, " ")
@@ -167,19 +155,19 @@ func (c *EnvConfig) Marshal() string {
 	// Modules and services
 	env[modulesKey] = strings.Join(c.EnabledModules, " ")
 	for _, moduleName := range c.EnabledModules {
-		env[strings.ToUpper("MODULE_"+moduleName+"_ENABLED")] = "true"
+		env[strings.ToUpper("MODULE_"+stripPrefixFromModuleName(moduleName)+"_ENABLED")] = "true"
 	}
 	env[servicesKey] = strings.Join(c.EnabledServices, " ")
 	for _, serviceName := range c.EnabledServices {
-		env[strings.ToUpper("MODULE_"+serviceName+"_ENABLED")] = "true"
+		env[strings.ToUpper("SERVICE_"+serviceName+"_ENABLED")] = "true"
 	}
 
 	// Marshal
 	lines := make([]string, 0, len(env))
 	for k, v := range env {
-		lines = append(lines, fmt.Sprintf(`export %s="%s"`, k, shellescape.Quote(v)))
+		lines = append(lines, fmt.Sprintf(`export %s=%s`, shellescape.Quote(getWithPrefix(k)), shellescape.Quote(v)))
 	}
 	sort.Strings(lines)
 
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, "\n") + "\n"
 }

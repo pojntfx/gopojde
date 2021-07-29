@@ -183,7 +183,7 @@ func (s *InstancesService) ApplyInstance(ctx context.Context, req *api.InstanceC
 
 			UserEmail:    req.GetUserEmail(),
 			UserFullName: req.GetUserFullName(),
-			SSHKey:       req.GetSSHKey(),
+			SSHKeyURL:    req.GetSSHKeyURL(),
 
 			AdditionalIPs:     req.GetAdditionalIPs(),
 			AdditionalDomains: req.GetAdditionalDomains(),

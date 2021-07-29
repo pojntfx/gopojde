@@ -74,10 +74,10 @@ message InstanceConfigurationMessage {
 
   string UserEmail = 9;
   string UserFullName = 10;
-  string SSHKey = 13;
+  string SSHKeyURL = 11;
 
-  repeated string AdditionalIPs = 11;
-  repeated string AdditionalDomains = 12;
+  repeated string AdditionalIPs = 12;
+  repeated string AdditionalDomains = 13;
 
   repeated string EnabledModules = 14;
   repeated string EnabledServices = 15;
