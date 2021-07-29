@@ -46,25 +46,47 @@ func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*a
 }
 
 func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api.InstancesService_GetLogsServer) error {
-	logChan, errChan, handle := s.instancesManager.GetLogs(stream.Context(), req.GetName())
-	defer func() {
-		if handle != nil {
-			handle.Close()
+	var fatalError error
+	ctx, _cancel := context.WithCancel(stream.Context())
+	cancel := func(err error) {
+		fatalError = err
+
+		_cancel()
+	}
+
+	stdoutChan, stderrChan := make(chan []byte), make(chan []byte)
+	defer close(stdoutChan)
+	defer close(stderrChan)
+
+	go func() {
+		for chunk := range stdoutChan {
+			if err := stream.Send(&api.ShellOutputMessage{
+				Stdout: chunk,
+			}); err != nil {
+				cancel(err)
+
+				return
+			}
 		}
 	}()
 
-	for {
-		select {
-		case chunk := <-logChan:
-			if err := stream.Send(&api.LogMessage{
-				Chunk: chunk,
+	go func() {
+		for chunk := range stderrChan {
+			if err := stream.Send(&api.ShellOutputMessage{
+				Stderr: chunk,
 			}); err != nil {
-				return err
+				cancel(err)
+
+				return
 			}
-		case err := <-errChan:
-			return err
 		}
-	}
+	}()
+
+	go s.instancesManager.GetLogs(ctx, cancel, req.GetName(), stdoutChan, stderrChan)
+
+	<-ctx.Done()
+
+	return fatalError
 }
 
 func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {

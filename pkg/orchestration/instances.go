@@ -193,6 +193,71 @@ func (m *InstancesManager) execInInstance(ctx context.Context, instanceName stri
 	return string(stdout), string(stderr), meta.ExitCode, nil
 }
 
+func (m *InstancesManager) execInInstanceStreaming(ctx context.Context, cancel func(error), instanceName string, command []string, stdoutChan, stderrChan chan []byte) {
+	rawStdoutChan, rawStderrChan := make(chan []byte), make(chan []byte)
+	defer close(rawStdoutChan)
+	defer close(rawStderrChan)
+
+	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          command,
+	})
+	if err != nil {
+		cancel(err)
+
+		return
+	}
+
+	resp, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
+	if err != nil {
+		cancel(err)
+
+		return
+	}
+
+	go func() {
+		for {
+			header := make([]byte, 8)
+			if _, err := resp.Reader.Read(header); err != nil {
+				cancel(err)
+
+				return
+			}
+
+			data := make([]byte, binary.BigEndian.Uint32(header[4:]))
+			if _, err := resp.Reader.Read(data); err != nil {
+				cancel(err)
+
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				switch header[0] {
+				case 1:
+					rawStderrChan <- data
+				default:
+					rawStdoutChan <- data
+				}
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case chunk := <-rawStderrChan:
+			stdoutChan <- chunk
+		case chunk := <-rawStdoutChan:
+			stderrChan <- chunk
+		}
+	}
+}
+
 func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error) {
 	containers, err := m.docker.ContainerList(ctx, types.ContainerListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", containerPrefix)),
@@ -225,67 +290,8 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 	return instances, nil
 }
 
-func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan []byte, chan error, *types.HijackedResponse) {
-	outChan := make(chan []byte)
-	errChan := make(chan error)
-
-	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          journalctlTailCmd,
-	})
-	if err != nil {
-		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
-		go func() {
-			errChan <- fmt.Errorf("could not request instance logs: %v", err)
-
-			close(outChan)
-			close(errChan)
-		}()
-
-		return outChan, errChan, nil
-	}
-
-	logs, err := m.docker.ContainerExecAttach(ctx, exec.ID, types.ExecStartCheck{})
-	if err != nil {
-		// We have to launch this in a new Goroutine to prevent a deadlock as the write operation to the chan would be blocking
-		go func() {
-			errChan <- fmt.Errorf("could not attach to instance logs: %v", err)
-
-			close(outChan)
-			close(errChan)
-		}()
-
-		return outChan, errChan, &logs
-	}
-
-	go func() {
-		for {
-			header := make([]byte, 8)
-			if _, err := logs.Reader.Read(header); err != nil {
-				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
-
-				close(outChan)
-				close(errChan)
-
-				return
-			}
-
-			data := make([]byte, binary.BigEndian.Uint32(header[4:]))
-			if _, err := logs.Reader.Read(data); err != nil {
-				errChan <- fmt.Errorf("could not read from instance log stream: %v", err)
-
-				close(outChan)
-				close(errChan)
-
-				return
-			}
-
-			outChan <- data
-		}
-	}()
-
-	return outChan, nil, &logs
+func (m *InstancesManager) GetLogs(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte) {
+	m.execInInstanceStreaming(ctx, cancel, instanceName, journalctlTailCmd, stdoutChan, stderrChan)
 }
 
 func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string) error {
