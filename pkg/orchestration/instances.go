@@ -45,6 +45,7 @@ var (
 	enumerateConfigurationScriptsCmd = []string{"ls", configurationScriptsDir}
 	bashCmd                          = []string{"bash"}
 	blocklistedScripts               = []string{"parameters.sh"} // TODO: Remove this as soon as scripts are no longer interactive
+	configScripts                    = []string{"user", "apt", "code-server", "ttyd", "novnc", "jupyter-lab", "nginx", "docker", "pojdectl", "ssh", "git", "modules", "init", "clean"}
 )
 
 func removePrefix(instanceName string) string {
@@ -86,6 +87,10 @@ func getTransferDirectory(instanceName string) (string, error) {
 
 func getCommandToExecuteRefreshScript(scriptPath string) []string {
 	return []string{"bash", "-c", fmt.Sprintf(". %v && refresh", shellescape.Quote(scriptPath))}
+}
+
+func getCommandToExecuteUpgradeScript(scriptPath string) []string {
+	return []string{"bash", "-c", fmt.Sprintf(". %v && upgrade", shellescape.Quote(scriptPath))}
 }
 
 type InstanceRemovalOptions struct {
@@ -219,8 +224,8 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 	return instances, nil
 }
 
-func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan string, chan error, *types.HijackedResponse) {
-	outChan := make(chan string)
+func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (chan []byte, chan error, *types.HijackedResponse) {
+	outChan := make(chan []byte)
 	errChan := make(chan error)
 
 	exec, err := m.docker.ContainerExecCreate(ctx, addContainerPrefix(instanceName), types.ExecConfig{
@@ -275,7 +280,7 @@ func (m *InstancesManager) GetLogs(ctx context.Context, instanceName string) (ch
 				return
 			}
 
-			outChan <- string(data)
+			outChan <- data
 		}
 	}()
 
@@ -685,6 +690,21 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 		if err := m.docker.CopyToContainer(ctx, resp.ID, preferencesDirInContainer, &buf, types.CopyToContainerOptions{}); err != nil {
 			return err
 		}
+
+		// Run the config scripts
+		for _, script := range configScripts {
+			// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
+			scriptPath := path.Join(configurationScriptsDir, script+".sh")
+
+			stdout, stderr, exitCode, err := m.execInInstance(ctx, name, getCommandToExecuteUpgradeScript(scriptPath))
+			if err != nil {
+				return err
+			}
+
+			if exitCode != 0 {
+				return fmt.Errorf("could not run configuration scripts in instance: Non-zero exit code %v: stdout=%v, stderr=%v", exitCode, stdout, stderr)
+			}
+		}
 	}
 
 	return nil
@@ -692,7 +712,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 
 func (m *InstancesManager) GetInstanceConfig(ctx context.Context, name string) (InstanceCreationOptions, error) {
 	// Copy the config file from the container
-	// path.Join is used here instead of filepath.Join because the container uses "/" as the separator exclusively
+	// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
 	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(name), path.Join(preferencesDirInContainer, preferencesFileInContainer))
 	if err != nil {
 		return InstanceCreationOptions{}, err
