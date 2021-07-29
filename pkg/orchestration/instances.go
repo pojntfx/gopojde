@@ -1,6 +1,7 @@
 package orchestration
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -22,18 +23,21 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+	"github.com/pojntfx/gopojde/pkg/config"
 )
 
 const (
-	containerPrefix         = "/pojde-"
-	volumePrefix            = "pojde-"
-	configurationScriptsDir = "/opt/pojde/configuration"
-	caCertFile              = "ca.pem"
-	pojdeDockerImage        = "pojntfx/pojde:latest"
-	firstPort               = 8000
-	portCount               = 5
-	startCmd                = "/lib/systemd/systemd"
-	execPerm                = 0775
+	containerPrefix            = "/pojde-"
+	volumePrefix               = "pojde-"
+	configurationScriptsDir    = "/opt/pojde/configuration"
+	caCertFile                 = "ca.pem"
+	pojdeDockerImage           = "pojntfx/pojde:latest"
+	firstPort                  = 8000
+	portCount                  = 5
+	startCmd                   = "/lib/systemd/systemd"
+	execPerm                   = 0775
+	preferencesDirInContainer  = "/opt/pojde/preferences"
+	preferencesFileInContainer = "preferences.sh"
 )
 
 var (
@@ -106,7 +110,7 @@ type InstanceCreationOptions struct {
 
 	UserEmail    string
 	UserFullName string
-	SSHKey       string
+	SSHKeyURL    string
 
 	AdditionalIPs     []string
 	AdditionalDomains []string
@@ -635,7 +639,50 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, name string, flags
 			return err
 		}
 
+		// Start the container
 		if err := m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+			return err
+		}
+
+		// Prepare the config file
+		configFile := config.NewConfig()
+
+		configFile.RootPassword = opts.RootPassword
+		configFile.UserName = opts.UserName
+		configFile.UserPassword = opts.UserPassword
+
+		configFile.UserEmail = opts.UserEmail
+		configFile.UserFullName = opts.UserFullName
+		configFile.SSHKeyURL = opts.SSHKeyURL
+
+		configFile.AdditionalIPs = opts.AdditionalIPs
+		configFile.AdditionalDomains = opts.AdditionalDomains
+
+		configFile.EnabledModules = opts.EnabledModules
+		configFile.EnabledServices = opts.EnabledServices
+
+		configContents := configFile.Marshal()
+
+		// Create a tar archive containing the config file
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name: preferencesFileInContainer,
+			Mode: 664,
+			Size: int64(len(configContents)),
+		}); err != nil {
+			return err
+		}
+		if _, err := tw.Write([]byte(configContents)); err != nil {
+			return err
+		}
+
+		if err := tw.Close(); err != nil {
+			return err
+		}
+
+		// Copy the config file to the container
+		if err := m.docker.CopyToContainer(ctx, resp.ID, preferencesDirInContainer, &buf, types.CopyToContainerOptions{}); err != nil {
 			return err
 		}
 	}
