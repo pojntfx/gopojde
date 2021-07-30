@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/alessio/shellescape"
 	"github.com/docker/docker/api/types"
@@ -134,6 +135,8 @@ type Instance struct {
 
 type InstancesManager struct {
 	docker *client.Client
+
+	sshKeyMutex sync.Mutex
 }
 
 func NewInstancesManager(docker *client.Client) *InstancesManager {
@@ -309,6 +312,62 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 	}
 
 	return instances, nil
+}
+
+func (m *InstancesManager) getFileContentsFromInstance(ctx context.Context, instanceName string, path string) (string, error) {
+	// Copy the config file from the container
+	// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
+	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(instanceName), path)
+	if err != nil {
+		return "", err
+	}
+
+	// Read the config file into a buffer
+	tr := tar.NewReader(r)
+	var buf bytes.Buffer
+
+	if _, err := tr.Next(); err != nil {
+		return "", err
+	}
+
+	if _, err := io.Copy(&buf, tr); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func (m *InstancesManager) writeFileToInstance(ctx context.Context, instanceName string, dest string, contents string, appendOnly bool) error {
+	// If we are appending, get the old file contents
+	if appendOnly {
+		oldContents, err := m.getFileContentsFromInstance(ctx, instanceName, dest)
+		if err != nil {
+			return err
+		}
+
+		contents = oldContents + contents
+	}
+
+	// Create a tar archive containing the contents
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: path.Base(dest),
+		Mode: 664,
+		Size: int64(len(contents)),
+	}); err != nil {
+		return err
+	}
+	if _, err := tw.Write([]byte(contents)); err != nil {
+		return err
+	}
+
+	if err := tw.Close(); err != nil {
+		return err
+	}
+
+	// Copy the file to the container
+	return m.docker.CopyToContainer(ctx, addContainerPrefix(instanceName), path.Dir(dest), &buf, types.CopyToContainerOptions{})
 }
 
 func (m *InstancesManager) GetLogs(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte) {
@@ -719,32 +778,9 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 
 		configContents := configFile.Marshal()
 
-		// Create a tar archive containing the config file
-		var buf bytes.Buffer
-		tw := tar.NewWriter(&buf)
-		if err := tw.WriteHeader(&tar.Header{
-			Name: preferencesFileInContainer,
-			Mode: 664,
-			Size: int64(len(configContents)),
-		}); err != nil {
-			cancel(err)
-
-			return
-		}
-		if _, err := tw.Write([]byte(configContents)); err != nil {
-			cancel(err)
-
-			return
-		}
-
-		if err := tw.Close(); err != nil {
-			cancel(err)
-
-			return
-		}
-
 		// Copy the config file to the container
-		if err := m.docker.CopyToContainer(ctx, resp.ID, preferencesDirInContainer, &buf, types.CopyToContainerOptions{}); err != nil {
+		// We use `path.Join` instead of `filepath.Join` here it will always be used in the container, which always uses `/` even if the host uses a different separator
+		if err := m.writeFileToInstance(ctx, instanceName, path.Join(preferencesDirInContainer, preferencesFileInContainer), configContents, false); err != nil {
 			cancel(err)
 
 			return
@@ -771,29 +807,6 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 
 		cancel(nil)
 	}
-}
-
-func (m *InstancesManager) getFileContentsFromInstance(ctx context.Context, instanceName string, path string) (string, error) {
-	// Copy the config file from the container
-	// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
-	r, _, err := m.docker.CopyFromContainer(ctx, addContainerPrefix(instanceName), path)
-	if err != nil {
-		return "", err
-	}
-
-	// Read the config file into a buffer
-	tr := tar.NewReader(r)
-	var buf bytes.Buffer
-
-	if _, err := tr.Next(); err != nil {
-		return "", err
-	}
-
-	if _, err := io.Copy(&buf, tr); err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
 }
 
 func (m *InstancesManager) GetInstanceConfig(ctx context.Context, instanceName string) (InstanceCreationOptions, error) {
@@ -833,6 +846,22 @@ func (m *InstancesManager) GetSSHKeys(ctx context.Context, instanceName string) 
 		return []string{}, err
 	}
 
+	// Parse the SSH keys
+	sshKeys := []string{}
+	for _, sshKey := range strings.Split(authorizedKeysFileContent, "\n") {
+		if !(strings.TrimSpace(sshKey) == "") {
+			sshKeys = append(sshKeys, sshKey)
+		}
+	}
+
 	// Parse the authorized keys
-	return strings.Split(strings.TrimSpace(authorizedKeysFileContent), "\n"), nil
+	return sshKeys, nil
+}
+
+func (m *InstancesManager) AddSSHKey(ctx context.Context, instanceName string, sshKey string) error {
+	m.sshKeyMutex.Lock()
+	defer m.sshKeyMutex.Unlock()
+
+	// Add the key to the authorized_keys file
+	return m.writeFileToInstance(ctx, instanceName, sshKeysPath, "\n"+sshKey, true)
 }

@@ -289,12 +289,23 @@ func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.Insta
 }
 
 func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceReferenceMessage) (*api.SSHKeysMessage, error) {
-	sshKeys, err := s.instancesManager.GetSSHKeys(ctx, req.GetName())
+	sshKeyContents, err := s.instancesManager.GetSSHKeys(ctx, req.GetName())
 	if err != nil {
 		return &api.SSHKeysMessage{}, err
+	}
+
+	sshKeys := []*api.SSHKeyMessage{}
+	for _, sshKeyContents := range sshKeyContents {
+		sshKeys = append(sshKeys, &api.SSHKeyMessage{
+			Content: sshKeyContents,
+		})
 	}
 
 	return &api.SSHKeysMessage{
 		SSHKeys: sshKeys,
 	}, nil
+}
+
+func (s *InstancesService) AddSSHKey(ctx context.Context, req *api.SSHKeyAdditionMessage) (*empty.Empty, error) {
+	return &emptypb.Empty{}, s.instancesManager.AddSSHKey(ctx, req.GetInstance().GetName(), req.GetSSHKey().GetContent())
 }
