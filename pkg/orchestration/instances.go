@@ -36,7 +36,7 @@ const (
 	caCertFile                 = "ca.pem"
 	pojdeDockerImage           = "pojntfx/pojde:latest"
 	firstInternalPort          = 8000
-	portCount                  = 5 // portSuffixToServiceMap should have this many entries
+	portCount                  = 6 // portSuffixToServiceMap should have this many entries
 	startCmd                   = "/lib/systemd/systemd"
 	execPerm                   = 0775
 	preferencesDirInContainer  = "/opt/pojde/preferences"
