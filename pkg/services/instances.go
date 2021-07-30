@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"crypto/sha512"
+	"fmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
@@ -10,6 +12,10 @@ import (
 )
 
 //go:generate sh -c "mkdir -p ../api/proto/v1 && protoc --go_out=paths=source_relative,plugins=grpc:../api/proto/v1 -I=../../api/proto/v1 ../../api/proto/v1/*.proto"
+
+func getSHA512Hash(input string) string {
+	return fmt.Sprintf("%x", sha512.Sum512([]byte(input)))
+}
 
 type InstancesService struct {
 	api.UnimplementedInstancesServiceServer
@@ -32,7 +38,7 @@ func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*a
 	out := []*api.InstanceSummaryMessage{}
 	for _, instance := range instances {
 		out = append(out, &api.InstanceSummaryMessage{
-			Instance: &api.InstanceReferenceMessage{
+			InstanceID: &api.InstanceIDMessage{
 				Name: instance.Name,
 			},
 			Ports:  instance.Ports,
@@ -45,7 +51,7 @@ func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*a
 	}, nil
 }
 
-func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api.InstancesService_GetLogsServer) error {
+func (s *InstancesService) GetLogs(req *api.InstanceIDMessage, stream api.InstancesService_GetLogsServer) error {
 	var fatalError error
 	ctx, _cancel := context.WithCancel(stream.Context())
 	cancel := func(err error) {
@@ -89,20 +95,20 @@ func (s *InstancesService) GetLogs(req *api.InstanceReferenceMessage, stream api
 	return fatalError
 }
 
-func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceIDMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.StartInstance(ctx, req.GetName())
 }
 
-func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceIDMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.StopInstance(ctx, req.GetName())
 }
 
-func (s *InstancesService) RestartInstance(ctx context.Context, req *api.InstanceReferenceMessage) (*empty.Empty, error) {
+func (s *InstancesService) RestartInstance(ctx context.Context, req *api.InstanceIDMessage) (*empty.Empty, error) {
 	return &emptypb.Empty{}, s.instancesManager.RestartInstance(ctx, req.GetName())
 }
 
 func (s *InstancesService) RemoveInstance(ctx context.Context, req *api.InstanceRemovalOptionsMessage) (*empty.Empty, error) {
-	return &emptypb.Empty{}, s.instancesManager.RemoveInstance(ctx, req.GetInstance().GetName(), orchestration.InstanceRemovalOptions{
+	return &emptypb.Empty{}, s.instancesManager.RemoveInstance(ctx, req.GetInstanceID().GetName(), orchestration.InstanceRemovalOptions{
 		Customizations: req.GetCustomizations(),
 		DEBCache:       req.GetDEBCache(),
 		Preferences:    req.GetPreferences(),
@@ -175,7 +181,7 @@ func (s *InstancesService) GetShell(stream api.InstancesService_GetShellServer) 
 					}
 				}()
 
-				go s.instancesManager.GetShell(ctx, cancel, msg.Instance.GetName(), stdinChan, stdoutChan, stderrChan)
+				go s.instancesManager.GetShell(ctx, cancel, msg.GetInstanceID().GetName(), stdinChan, stdoutChan, stderrChan)
 
 				open = true
 			}
@@ -265,7 +271,7 @@ func (s *InstancesService) ApplyInstance(req *api.InstanceConfigurationMessage, 
 	return fatalError
 }
 
-func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.InstanceReferenceMessage) (*api.InstanceOptionsMessage, error) {
+func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.InstanceIDMessage) (*api.InstanceOptionsMessage, error) {
 	cfg, err := s.instancesManager.GetInstanceConfig(ctx, req.GetName())
 	if err != nil {
 		return &api.InstanceOptionsMessage{}, err
@@ -288,7 +294,7 @@ func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.Insta
 	}, nil
 }
 
-func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceReferenceMessage) (*api.SSHKeysMessage, error) {
+func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceIDMessage) (*api.SSHKeysMessage, error) {
 	sshKeyContents, err := s.instancesManager.GetSSHKeys(ctx, req.GetName())
 	if err != nil {
 		return &api.SSHKeysMessage{}, err
@@ -297,6 +303,9 @@ func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceRefe
 	sshKeys := []*api.SSHKeyMessage{}
 	for _, sshKeyContents := range sshKeyContents {
 		sshKeys = append(sshKeys, &api.SSHKeyMessage{
+			SSHKeyID: &api.SSHKeyIDMessage{
+				Hash: getSHA512Hash(sshKeyContents),
+			},
 			Content: sshKeyContents,
 		})
 	}
@@ -306,6 +315,11 @@ func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceRefe
 	}, nil
 }
 
-func (s *InstancesService) AddSSHKey(ctx context.Context, req *api.SSHKeyAdditionMessage) (*empty.Empty, error) {
-	return &emptypb.Empty{}, s.instancesManager.AddSSHKey(ctx, req.GetInstance().GetName(), req.GetSSHKey().GetContent())
+func (s *InstancesService) AddSSHKey(ctx context.Context, req *api.SSHKeyAdditionMessage) (*api.SSHKeyMessage, error) {
+	return &api.SSHKeyMessage{
+		SSHKeyID: &api.SSHKeyIDMessage{
+			Hash: getSHA512Hash(req.GetContent()),
+		},
+		Content: req.GetContent(),
+	}, s.instancesManager.AddSSHKey(ctx, req.GetInstanceID().GetName(), req.GetContent())
 }
