@@ -4,5 +4,8 @@
 curl -L -o /tmp/bagop "https://github.com/pojntfx/bagop/releases/latest/download/bagop.linux-$(uname -m)"
 install /tmp/bagop /usr/local/bin
 
-# Build release
-bagop -j "$(nproc)" -b gopojde-backend -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -p "go build -a -ldflags '-extldflags \"-static\"' -o \$DST main.go"
+# Build backend
+bagop -j "$(nproc)" -b gopojde-backend -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -p "go build -a -ldflags '-extldflags \"-static\"' -o \$DST cmd/gopojde-backend/main.go"
+
+# Build frontend
+bagop -j "$(nproc)" -b gopojde-companion -x '(android/*|ios/*|plan9/*)' -p "go build -a -ldflags '-extldflags \"-static\"' -o \$DST cmd/gopojde-companion/main.go"
