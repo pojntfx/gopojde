@@ -8,18 +8,18 @@ option go_package = "github.com/pojntfx/pojde/pkg/api/proto/v1";
 
 service InstancesService {
   rpc GetInstances(google.protobuf.Empty) returns (InstanceSummariesMessage);
-  rpc GetLogs(InstanceReferenceMessage) returns (stream ShellOutputMessage);
-  rpc StartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
-  rpc StopInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
-  rpc RestartInstance(InstanceReferenceMessage) returns (google.protobuf.Empty);
+  rpc GetLogs(InstanceIDMessage) returns (stream ShellOutputMessage);
+  rpc StartInstance(InstanceIDMessage) returns (google.protobuf.Empty);
+  rpc StopInstance(InstanceIDMessage) returns (google.protobuf.Empty);
+  rpc RestartInstance(InstanceIDMessage) returns (google.protobuf.Empty);
   rpc RemoveInstance(InstanceRemovalOptionsMessage) returns (google.protobuf.Empty);
   rpc GetCACert(google.protobuf.Empty) returns (CACertMessage);
   rpc ResetCA(google.protobuf.Empty) returns (google.protobuf.Empty);
   rpc GetShell(stream ShellInputMessage) returns (stream ShellOutputMessage);
   rpc ApplyInstance(InstanceConfigurationMessage) returns (stream ShellOutputMessage);
-  rpc GetInstanceConfig(InstanceReferenceMessage) returns (InstanceOptionsMessage);
-  rpc GetSSHKeys(InstanceReferenceMessage) returns (SSHKeysMessage);
-  rpc AddSSHKey(SSHKeyAdditionMessage) returns (google.protobuf.Empty);
+  rpc GetInstanceConfig(InstanceIDMessage) returns (InstanceOptionsMessage);
+  rpc GetSSHKeys(InstanceIDMessage) returns (SSHKeysMessage);
+  rpc AddSSHKey(SSHKeyAdditionMessage) returns (SSHKeyMessage);
 }
 
 message InstanceSummariesMessage {
@@ -27,17 +27,17 @@ message InstanceSummariesMessage {
 }
 
 message InstanceSummaryMessage {
-  InstanceReferenceMessage Instance = 1;
+  InstanceIDMessage InstanceID = 1;
   repeated int32 Ports = 2;
   string Status = 3;
 }
 
-message InstanceReferenceMessage {
+message InstanceIDMessage {
   string Name = 1;
 }
 
 message InstanceRemovalOptionsMessage {
-  InstanceReferenceMessage Instance = 1;
+  InstanceIDMessage InstanceID = 1;
   bool Customizations = 2;
   bool DEBCache = 3;
   bool Preferences = 4;
@@ -50,7 +50,7 @@ message CACertMessage {
 }
 
 message ShellInputMessage {
-  InstanceReferenceMessage Instance = 1;
+  InstanceIDMessage InstanceID = 1;
   bytes Stdin = 2;
 }
 
@@ -92,10 +92,15 @@ message SSHKeysMessage {
 }
 
 message SSHKeyAdditionMessage {
-  InstanceReferenceMessage Instance = 1;
-  SSHKeyMessage SSHKey = 2;
+  InstanceIDMessage InstanceID = 1;
+  string Content = 2;
 }
 
 message SSHKeyMessage {
-  string Content = 1;
+  SSHKeyIDMessage SSHKeyID = 1;
+  string Content = 2;
+}
+
+message SSHKeyIDMessage {
+  string Hash = 1;
 }
