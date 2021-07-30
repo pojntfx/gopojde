@@ -14,23 +14,27 @@
     <ul id="instancesList"></ul>
 
     <script>
+      const refreshInstances = async () => {
+        const res = await window.getInstances();
+
+        document.querySelector("#instancesList")?.replaceChildren(
+          ...res.instances.map((i) => {
+            const el = document.createElement("li");
+
+            el.innerText = `${i.InstanceID.Name} (SSH port: ${
+              i.Ports.find((p) => p.Service === "ssh")?.Port
+            })`;
+
+            return el;
+          })
+        );
+      };
+
       document
         .querySelector("#refreshInstances")
-        ?.addEventListener("click", async (e) => {
-          const res = await window.getInstances();
+        ?.addEventListener("click", () => refreshInstances);
 
-          document.querySelector("#instancesList")?.replaceChildren(
-            ...res.instances.map((i) => {
-              const el = document.createElement("li");
-
-              el.innerText = `${i.InstanceID.Name} (SSH port: ${
-                i.Ports.find((p) => p.Service === "ssh")?.Port
-              })`;
-
-              return el;
-            })
-          );
-        });
+      refreshInstances();
     </script>
   </body>
 </html>
