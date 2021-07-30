@@ -32,11 +32,19 @@ func (s *InstancesService) GetInstances(ctx context.Context, _ *empty.Empty) (*a
 
 	out := []*api.InstanceSummaryMessage{}
 	for _, instance := range instances {
+		ports := []*api.PortMessage{}
+		for _, port := range instance.Ports {
+			ports = append(ports, &api.PortMessage{
+				Service: port.Service,
+				Port:    port.Port,
+			})
+		}
+
 		out = append(out, &api.InstanceSummaryMessage{
 			InstanceID: &api.InstanceIDMessage{
 				Name: instance.Name,
 			},
-			Ports:  instance.Ports,
+			Ports:  ports,
 			Status: instance.Status,
 		})
 	}

@@ -29,8 +29,13 @@ message InstanceSummariesMessage {
 
 message InstanceSummaryMessage {
   InstanceIDMessage InstanceID = 1;
-  repeated int32 Ports = 2;
+  repeated PortMessage Ports = 2;
   string Status = 3;
+}
+
+message PortMessage {
+  string Service = 1;
+  int32 Port = 2;
 }
 
 message InstanceIDMessage {

@@ -35,7 +35,7 @@ const (
 	caCertFile                 = "ca.pem"
 	pojdeDockerImage           = "pojntfx/pojde:latest"
 	firstInternalPort          = 8000
-	portCount                  = 5
+	portCount                  = 5 // portSuffixToServiceMap should have this many entries
 	startCmd                   = "/lib/systemd/systemd"
 	execPerm                   = 0775
 	preferencesDirInContainer  = "/opt/pojde/preferences"
@@ -49,6 +49,14 @@ var (
 	bashCmd                          = []string{"bash"}
 	blocklistedScripts               = []string{"parameters.sh"} // TODO: Remove this as soon as scripts are no longer interactive
 	configScripts                    = []string{"user", "apt", "code-server", "ttyd", "novnc", "jupyter-lab", "nginx", "docker", "pojdectl", "ssh", "git", "modules", "init", "clean"}
+	portToServiceMap                 = map[int32]string{
+		firstInternalPort + 0: "cockpit",
+		firstInternalPort + 1: "codeserver",
+		firstInternalPort + 2: "ttyd",
+		firstInternalPort + 3: "novnc",
+		firstInternalPort + 4: "jupyterlab",
+		firstInternalPort + 5: "ssh",
+	}
 )
 
 func removePrefix(instanceName string) string {
@@ -130,8 +138,13 @@ type InstanceCreationOptions struct {
 
 type Instance struct {
 	Name   string
-	Ports  []int32
+	Ports  []Port
 	Status string
+}
+
+type Port struct {
+	Service string
+	Port    int32
 }
 
 type InstancesManager struct {
@@ -295,13 +308,16 @@ func (m *InstancesManager) GetInstances(ctx context.Context) ([]Instance, error)
 	instances := []Instance{}
 	for _, container := range containers {
 		portsMap := make(map[int32]struct{})
-		ports := []int32{}
+		ports := []Port{}
 
 		// Remove duplicates (i.e. IPv4 or IPv6)
 		for _, port := range container.Ports {
 			if _, exists := portsMap[int32(port.PublicPort)]; !exists {
 				portsMap[int32(port.PublicPort)] = struct{}{}
-				ports = append(ports, int32(port.PublicPort))
+				ports = append(ports, Port{
+					Service: portToServiceMap[int32(port.PrivatePort)],
+					Port:    int32(port.PublicPort),
+				})
 			}
 		}
 
