@@ -25,6 +25,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/pojntfx/gopojde/pkg/config"
+	"github.com/pojntfx/gopojde/pkg/util"
 )
 
 const (
@@ -864,4 +865,38 @@ func (m *InstancesManager) AddSSHKey(ctx context.Context, instanceName string, s
 
 	// Add the key to the authorized_keys file
 	return m.writeFileToInstance(ctx, instanceName, sshKeysPath, "\n"+sshKey, true)
+}
+
+func (m *InstancesManager) RemoveSSHKey(ctx context.Context, instanceName string, hash string) (string, error) {
+	m.sshKeyMutex.Lock()
+	defer m.sshKeyMutex.Unlock()
+
+	// Get the current SSH keys
+	sshKeys, err := m.GetSSHKeys(ctx, instanceName)
+	if err != nil {
+		return "", err
+	}
+
+	// Find all keys which don't match the hash
+	targetKey := ""
+	newSSHKeys := ""
+	for _, sshKey := range sshKeys {
+		if util.GetSHA512Hash(sshKey) != hash {
+			newSSHKeys += sshKey + "\n"
+		} else {
+			targetKey = sshKey
+		}
+	}
+
+	// If no key could be found for the target hash, return an error
+	if targetKey == "" {
+		return "", fmt.Errorf("could not find SSH key for hash %v", hash)
+	}
+
+	// Write new keys
+	if err := m.writeFileToInstance(ctx, instanceName, sshKeysPath, newSSHKeys, false); err != nil {
+		return "", err
+	}
+
+	return targetKey, nil
 }
