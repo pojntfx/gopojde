@@ -212,9 +212,10 @@ func (s *InstancesService) ApplyInstance(req *api.InstanceConfigurationMessage, 
 		_cancel()
 	}
 
-	stdoutChan, stderrChan := make(chan []byte), make(chan []byte)
+	stdoutChan, stderrChan, statusChan := make(chan []byte), make(chan []byte), make(chan string)
 	defer close(stdoutChan)
 	defer close(stderrChan)
+	defer close(statusChan)
 
 	go func() {
 		for chunk := range stdoutChan {
@@ -240,12 +241,25 @@ func (s *InstancesService) ApplyInstance(req *api.InstanceConfigurationMessage, 
 		}
 	}()
 
+	go func() {
+		for status := range statusChan {
+			if err := stream.Send(&api.ShellOutputMessage{
+				Status: status,
+			}); err != nil {
+				cancel(err)
+
+				return
+			}
+		}
+	}()
+
 	go s.instancesManager.ApplyInstance(
 		ctx,
 		cancel,
 		req.GetName(),
 		stdoutChan,
 		stderrChan,
+		statusChan,
 		orchestration.InstanceCreationFlags{
 			StartPort:       req.GetStartPort(),
 			Isolate:         req.GetIsolate(),

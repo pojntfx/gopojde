@@ -63,6 +63,7 @@ message ShellInputMessage {
 message ShellOutputMessage {
   bytes Stdout = 1;
   bytes Stderr = 2;
+  string Status = 3;
 }
 
 message InstanceConfigurationMessage {

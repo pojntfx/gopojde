@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+	"github.com/iancoleman/strcase"
 	"github.com/pojntfx/gopojde/pkg/config"
 	"github.com/pojntfx/gopojde/pkg/util"
 )
@@ -41,6 +42,11 @@ const (
 	preferencesDirInContainer  = "/opt/pojde/preferences"
 	preferencesFileInContainer = "preferences.sh"
 	sshKeysPath                = "/root/.ssh/authorized_keys"
+
+	StatusPullingLatestImage        = "pullingLatestImage"
+	StatusRemovingExistingContainer = "removingExistingContainer"
+	StatusCreatingContainer         = "creatingContainer"
+	StatusPreparingConfigScripts    = "preparingConfigScripts"
 )
 
 var (
@@ -58,6 +64,18 @@ var (
 		firstInternalPort + 5: "ssh",
 	}
 )
+
+func getStartingMessage(status string) string {
+	return status + "Starting"
+}
+
+func getDoneMessage(status string) string {
+	return status + "Done"
+}
+
+func GetConfigScriptStatus(configScriptName string) string {
+	return "runningConfigScript" + strcase.ToCamel(configScriptName)
+}
 
 func removePrefix(instanceName string) string {
 	return strings.TrimPrefix(instanceName, containerPrefix)
@@ -616,17 +634,21 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 	}
 }
 
-func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, flags InstanceCreationFlags, opts InstanceCreationOptions) {
+func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, statusChan chan string, flags InstanceCreationFlags, opts InstanceCreationOptions) {
 	unlock := m.lockInstance(instanceName)
 	defer unlock()
 
 	// Pull the latest image if specified
 	if flags.PullLatestImage {
+		statusChan <- getStartingMessage(StatusPullingLatestImage)
+
 		if _, err := m.docker.ImagePull(ctx, pojdeDockerImage, types.ImagePullOptions{}); err != nil {
 			cancel(err)
 
 			return
 		}
+
+		statusChan <- getDoneMessage(StatusPullingLatestImage)
 	}
 
 	// Check if the container exists
@@ -637,6 +659,8 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 
 	// Remove the container if specified
 	if flags.Recreate && exists {
+		statusChan <- getStartingMessage(StatusRemovingExistingContainer)
+
 		if err := m.RemoveInstance(ctx, instanceName, InstanceRemovalOptions{
 			Customizations: false,
 			DEBCache:       false,
@@ -650,10 +674,14 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 		}
 
 		exists = false
+
+		statusChan <- getDoneMessage(StatusRemovingExistingContainer)
 	}
 
 	// Create the container if it doesn't alreay exist
 	if !exists {
+		statusChan <- getStartingMessage(StatusCreatingContainer)
+
 		hostConfig := &container.HostConfig{
 			Mounts: []mount.Mount{},
 		}
@@ -803,6 +831,10 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 			return
 		}
 
+		statusChan <- getDoneMessage(StatusCreatingContainer)
+
+		statusChan <- getStartingMessage(StatusPreparingConfigScripts)
+
 		// Prepare the config file
 		configFile := config.NewConfig()
 
@@ -830,8 +862,12 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 			return
 		}
 
+		statusChan <- getDoneMessage(StatusPreparingConfigScripts)
+
 		// Run the config scripts
 		for _, script := range configScripts {
+			statusChan <- getStartingMessage(GetConfigScriptStatus(script))
+
 			// We use `path.Join` instead of `filepath.Join` here as the script at the path will always be executed in the container, which always uses `/` even if the host uses a different separator
 			scriptPath := path.Join(configurationScriptsDir, script+".sh")
 
@@ -847,6 +883,8 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 
 				return
 			}
+
+			statusChan <- getDoneMessage(GetConfigScriptStatus(script))
 		}
 
 		cancel(nil)
