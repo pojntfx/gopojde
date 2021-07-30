@@ -19,6 +19,7 @@ service InstancesService {
   rpc ApplyInstance(InstanceConfigurationMessage) returns (stream ShellOutputMessage);
   rpc GetInstanceConfig(InstanceReferenceMessage) returns (InstanceOptionsMessage);
   rpc GetSSHKeys(InstanceReferenceMessage) returns (SSHKeysMessage);
+  rpc AddSSHKey(SSHKeyAdditionMessage) returns (google.protobuf.Empty);
 }
 
 message InstanceSummariesMessage {
@@ -87,5 +88,14 @@ message InstanceOptionsMessage {
 }
 
 message SSHKeysMessage {
-  repeated string SSHKeys = 1;
+  repeated SSHKeyMessage SSHKeys = 1;
+}
+
+message SSHKeyAdditionMessage {
+  InstanceReferenceMessage Instance = 1;
+  SSHKeyMessage SSHKey = 2;
+}
+
+message SSHKeyMessage {
+  string Content = 1;
 }
