@@ -8,5 +8,27 @@
   </head>
   <body>
     <h1>gopojde Companion</h1>
+
+    <button id="refreshInstances">Refresh</button>
+
+    <ul id="instancesList"></ul>
+
+    <script>
+      document
+        .querySelector("#refreshInstances")
+        ?.addEventListener("click", async (e) => {
+          const res = await window.getInstances();
+
+          document.querySelector("#instancesList")?.replaceChildren(
+            ...res.instances.map((i) => {
+              const el = document.createElement("li");
+
+              el.innerText = i.InstanceID.Name;
+
+              return el;
+            })
+          );
+        });
+    </script>
   </body>
 </html>
