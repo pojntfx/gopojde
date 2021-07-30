@@ -2,20 +2,15 @@ package services
 
 import (
 	"context"
-	"crypto/sha512"
-	"fmt"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/orchestration"
+	"github.com/pojntfx/gopojde/pkg/util"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 //go:generate sh -c "mkdir -p ../api/proto/v1 && protoc --go_out=paths=source_relative,plugins=grpc:../api/proto/v1 -I=../../api/proto/v1 ../../api/proto/v1/*.proto"
-
-func getSHA512Hash(input string) string {
-	return fmt.Sprintf("%x", sha512.Sum512([]byte(input)))
-}
 
 type InstancesService struct {
 	api.UnimplementedInstancesServiceServer
@@ -304,7 +299,8 @@ func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceIDMe
 	for _, sshKeyContents := range sshKeyContents {
 		sshKeys = append(sshKeys, &api.SSHKeyMessage{
 			SSHKeyID: &api.SSHKeyIDMessage{
-				Hash: getSHA512Hash(sshKeyContents),
+				InstanceID: req,
+				Hash:       util.GetSHA512Hash(sshKeyContents),
 			},
 			Content: sshKeyContents,
 		})
@@ -318,8 +314,21 @@ func (s *InstancesService) GetSSHKeys(ctx context.Context, req *api.InstanceIDMe
 func (s *InstancesService) AddSSHKey(ctx context.Context, req *api.SSHKeyAdditionMessage) (*api.SSHKeyMessage, error) {
 	return &api.SSHKeyMessage{
 		SSHKeyID: &api.SSHKeyIDMessage{
-			Hash: getSHA512Hash(req.GetContent()),
+			InstanceID: req.GetInstanceID(),
+			Hash:       util.GetSHA512Hash(req.GetContent()),
 		},
 		Content: req.GetContent(),
 	}, s.instancesManager.AddSSHKey(ctx, req.GetInstanceID().GetName(), req.GetContent())
+}
+
+func (s *InstancesService) RemoveSSHKey(ctx context.Context, req *api.SSHKeyIDMessage) (*api.SSHKeyMessage, error) {
+	sshKey, err := s.instancesManager.RemoveSSHKey(ctx, req.GetInstanceID().GetName(), req.GetHash())
+	if err != nil {
+		return &api.SSHKeyMessage{}, err
+	}
+
+	return &api.SSHKeyMessage{
+		SSHKeyID: req,
+		Content:  sshKey,
+	}, nil
 }

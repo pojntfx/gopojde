@@ -20,6 +20,7 @@ service InstancesService {
   rpc GetInstanceConfig(InstanceIDMessage) returns (InstanceOptionsMessage);
   rpc GetSSHKeys(InstanceIDMessage) returns (SSHKeysMessage);
   rpc AddSSHKey(SSHKeyAdditionMessage) returns (SSHKeyMessage);
+  rpc RemoveSSHKey(SSHKeyIDMessage) returns (SSHKeyMessage);
 }
 
 message InstanceSummariesMessage {
@@ -102,5 +103,6 @@ message SSHKeyMessage {
 }
 
 message SSHKeyIDMessage {
-  string Hash = 1;
+  InstanceIDMessage InstanceID = 1;
+  string Hash = 2;
 }
