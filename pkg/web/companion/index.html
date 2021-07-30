@@ -23,7 +23,9 @@
             ...res.instances.map((i) => {
               const el = document.createElement("li");
 
-              el.innerText = i.InstanceID.Name;
+              el.innerText = `${i.InstanceID.Name} (SSH port: ${
+                i.Ports.find((p) => p.Service === "ssh")?.Port
+              })`;
 
               return el;
             })
