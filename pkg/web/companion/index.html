@@ -5,34 +5,67 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>gopojde Companion</title>
+
+    <style>
+      #errorDisplay {
+        color: red;
+      }
+    </style>
   </head>
   <body>
     <h1>gopojde Companion</h1>
 
     <button id="refreshInstances">Refresh</button>
 
+    <div id="errorDisplay"></div>
+
     <ul id="instancesList"></ul>
 
     <script>
+      const errorDisplay = document.querySelector("#errorDisplay");
+      const instancesList = document.querySelector("#instancesList");
+
+      const setError = (content) => {
+        if (errorDisplay) {
+          errorDisplay.innerText = content;
+        }
+      };
+
+      const clearError = () => {
+        if (instancesList) {
+          instancesList.innerText = "";
+        }
+
+        if (errorDisplay) {
+          errorDisplay.innerText = "";
+        }
+      };
+
       const refreshInstances = async () => {
-        const res = await window.getInstances();
+        try {
+          clearError();
 
-        document.querySelector("#instancesList")?.replaceChildren(
-          ...res.instances.map((i) => {
-            const el = document.createElement("li");
+          const res = await window.getInstances();
 
-            el.innerText = `${i.InstanceID.Name} (SSH port: ${
-              i.Ports.find((p) => p.Service === "ssh")?.Port
-            })`;
+          instancesList?.replaceChildren(
+            ...res.instances.map((i) => {
+              const el = document.createElement("li");
 
-            return el;
-          })
-        );
+              el.innerText = `${i.InstanceID.Name} (SSH port: ${
+                i.Ports.find((p) => p.Service === "ssh")?.Port
+              })`;
+
+              return el;
+            })
+          );
+        } catch (e) {
+          setError(e);
+        }
       };
 
       document
         .querySelector("#refreshInstances")
-        ?.addEventListener("click", () => refreshInstances);
+        ?.addEventListener("click", refreshInstances);
 
       refreshInstances();
     </script>
