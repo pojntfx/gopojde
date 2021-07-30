@@ -99,7 +99,7 @@ func (s *InstancesService) GetLogs(req *api.InstanceIDMessage, stream api.Instan
 }
 
 func (s *InstancesService) StartInstance(ctx context.Context, req *api.InstanceIDMessage) (*empty.Empty, error) {
-	return &emptypb.Empty{}, s.instancesManager.StartInstance(ctx, req.GetName())
+	return &emptypb.Empty{}, s.instancesManager.StartInstance(ctx, req.GetName(), false)
 }
 
 func (s *InstancesService) StopInstance(ctx context.Context, req *api.InstanceIDMessage) (*empty.Empty, error) {
@@ -117,7 +117,7 @@ func (s *InstancesService) RemoveInstance(ctx context.Context, req *api.Instance
 		Preferences:    req.GetPreferences(),
 		UserData:       req.GetUserData(),
 		Transfer:       req.GetTransfer(),
-	})
+	}, false)
 }
 
 func (s *InstancesService) GetCACert(ctx context.Context, _ *empty.Empty) (*api.CACertMessage, error) {

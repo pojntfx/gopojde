@@ -150,13 +150,22 @@ type Port struct {
 type InstancesManager struct {
 	docker *client.Client
 
-	sshKeyMutex sync.Mutex
+	instancesMutex sync.Map
 }
 
 func NewInstancesManager(docker *client.Client) *InstancesManager {
 	return &InstancesManager{
 		docker: docker,
 	}
+}
+
+// See https://stackoverflow.com/questions/64564781/golang-lock-per-value
+func (m *InstancesManager) lockInstance(instanceName string) func() {
+	value, _ := m.instancesMutex.LoadOrStore(instanceName, &sync.Mutex{})
+	mtx := value.(*sync.Mutex)
+	mtx.Lock()
+
+	return func() { mtx.Unlock() }
 }
 
 func (m *InstancesManager) execInInstance(ctx context.Context, instanceName string, command []string) (string, string, int, error) {
@@ -402,19 +411,35 @@ func (m *InstancesManager) GetLogs(ctx context.Context, cancel func(error), inst
 	}
 }
 
-func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string) error {
+func (m *InstancesManager) StartInstance(ctx context.Context, instanceName string, skipLock bool) error {
+	if !skipLock {
+		unlock := m.lockInstance(instanceName)
+		defer unlock()
+	}
+
 	return m.docker.ContainerStart(ctx, addContainerPrefix(instanceName), types.ContainerStartOptions{})
 }
 
 func (m *InstancesManager) StopInstance(ctx context.Context, instanceName string) error {
+	unlock := m.lockInstance(instanceName)
+	defer unlock()
+
 	return m.docker.ContainerStop(ctx, addContainerPrefix(instanceName), nil)
 }
 
 func (m *InstancesManager) RestartInstance(ctx context.Context, instanceName string) error {
+	unlock := m.lockInstance(instanceName)
+	defer unlock()
+
 	return m.docker.ContainerRestart(ctx, addContainerPrefix(instanceName), nil)
 }
 
-func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions) error {
+func (m *InstancesManager) RemoveInstance(ctx context.Context, instanceName string, options InstanceRemovalOptions, skipLock bool) error {
+	if !skipLock {
+		unlock := m.lockInstance(instanceName)
+		defer unlock()
+	}
+
 	// Remove customization; we have to call this before removing the container as it runs inside of it
 	if options.Customizations {
 		stdout, stderr, exitCode, err := m.execInInstance(ctx, instanceName, enumerateConfigurationScriptsCmd)
@@ -592,6 +617,9 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 }
 
 func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, flags InstanceCreationFlags, opts InstanceCreationOptions) {
+	unlock := m.lockInstance(instanceName)
+	defer unlock()
+
 	// Pull the latest image if specified
 	if flags.PullLatestImage {
 		if _, err := m.docker.ImagePull(ctx, pojdeDockerImage, types.ImagePullOptions{}); err != nil {
@@ -615,7 +643,7 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 			Preferences:    false,
 			UserData:       false,
 			Transfer:       false,
-		}); err != nil {
+		}, true); err != nil {
 			cancel(err)
 
 			return
@@ -762,15 +790,14 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 		}
 
 		// Create the container
-		resp, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addContainerPrefix(instanceName))
-		if err != nil {
+		if _, err := m.docker.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, addContainerPrefix(instanceName)); err != nil {
 			cancel(err)
 
 			return
 		}
 
 		// Start the container
-		if err := m.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		if err := m.StartInstance(ctx, instanceName, true); err != nil {
 			cancel(err)
 
 			return
@@ -876,16 +903,16 @@ func (m *InstancesManager) GetSSHKeys(ctx context.Context, instanceName string) 
 }
 
 func (m *InstancesManager) AddSSHKey(ctx context.Context, instanceName string, sshKey string) error {
-	m.sshKeyMutex.Lock()
-	defer m.sshKeyMutex.Unlock()
+	unlock := m.lockInstance(instanceName)
+	defer unlock()
 
 	// Add the key to the authorized_keys file
 	return m.writeFileToInstance(ctx, instanceName, sshKeysPath, "\n"+sshKey, true)
 }
 
 func (m *InstancesManager) RemoveSSHKey(ctx context.Context, instanceName string, hash string) (string, error) {
-	m.sshKeyMutex.Lock()
-	defer m.sshKeyMutex.Unlock()
+	unlock := m.lockInstance(instanceName)
+	defer unlock()
 
 	// Get the current SSH keys
 	sshKeys, err := m.GetSSHKeys(ctx, instanceName)
