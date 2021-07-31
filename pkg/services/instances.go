@@ -256,22 +256,23 @@ func (s *InstancesService) ApplyInstance(req *api.InstanceConfigurationMessage, 
 	go s.instancesManager.ApplyInstance(
 		ctx,
 		cancel,
-		req.GetName(),
+		req.GetInstanceContainerOptions().GetName(),
 		stdoutChan,
 		stderrChan,
 		statusChan,
-		orchestration.InstanceCreationFlags{
-			StartPort:       req.GetStartPort(),
-			Isolate:         req.GetIsolate(),
-			Privileged:      req.GetPrivileged(),
-			Recreate:        req.GetRecreate(),
-			PullLatestImage: req.GetPullLatestImage(),
+		orchestration.InstanceContainerOptions{
+			StartPort:       req.GetInstanceContainerOptions().GetStartPort(),
+			Isolate:         req.GetInstanceContainerOptions().GetIsolate(),
+			Privileged:      req.GetInstanceContainerOptions().GetPrivileged(),
+			Recreate:        req.GetInstanceContainerOptions().GetRecreate(),
+			PullLatestImage: req.GetInstanceContainerOptions().GetPullLatestImage(),
 		},
-		orchestration.InstanceCreationOptions{
-			RootPassword: req.GetInstanceOptions().GetRootPassword(),
+		orchestration.InstanceAuthentication{
+			RootPassword: req.GetInstanceAuthentication().GetRootPassword(),
+			UserPassword: req.GetInstanceAuthentication().GetUserPassword(),
+		},
+		orchestration.InstanceOptions{
 			UserName:     req.GetInstanceOptions().GetUserName(),
-			UserPassword: req.GetInstanceOptions().GetUserPassword(),
-
 			UserEmail:    req.GetInstanceOptions().GetUserEmail(),
 			UserFullName: req.GetInstanceOptions().GetUserFullName(),
 			SSHKeyURL:    req.GetInstanceOptions().GetSSHKeyURL(),
@@ -295,10 +296,7 @@ func (s *InstancesService) GetInstanceConfig(ctx context.Context, req *api.Insta
 	}
 
 	return &api.InstanceOptionsMessage{
-		RootPassword: cfg.RootPassword,
 		UserName:     cfg.UserEmail,
-		UserPassword: cfg.UserPassword,
-
 		UserEmail:    cfg.UserEmail,
 		UserFullName: cfg.UserFullName,
 		SSHKeyURL:    cfg.SSHKeyURL,

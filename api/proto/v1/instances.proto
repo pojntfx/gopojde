@@ -67,31 +67,36 @@ message ShellOutputMessage {
 }
 
 message InstanceConfigurationMessage {
-  string Name = 1;
+  InstanceContainerOptionsMessage InstanceContainerOptions = 1;
+  InstanceAuthenticationMessage InstanceAuthentication = 2;
+  InstanceOptionsMessage InstanceOptions = 3;
+}
 
+message InstanceContainerOptionsMessage {
+  string Name = 1;
   int32 StartPort = 2;
   bool PullLatestImage = 3;
   bool Recreate = 4;
   bool Isolate = 5;
   bool Privileged = 6;
+}
 
-  InstanceOptionsMessage InstanceOptions = 7;
+message InstanceAuthenticationMessage {
+  string RootPassword = 1;
+  string UserPassword = 2;
 }
 
 message InstanceOptionsMessage {
-  string RootPassword = 1;
-  string UserName = 2;
-  string UserPassword = 3;
+  string UserName = 1;
+  string UserEmail = 2;
+  string UserFullName = 3;
+  string SSHKeyURL = 4;
 
-  string UserEmail = 4;
-  string UserFullName = 5;
-  string SSHKeyURL = 6;
+  repeated string AdditionalIPs = 5;
+  repeated string AdditionalDomains = 7;
 
-  repeated string AdditionalIPs = 7;
-  repeated string AdditionalDomains = 8;
-
-  repeated string EnabledModules = 9;
-  repeated string EnabledServices = 10;
+  repeated string EnabledModules = 8;
+  repeated string EnabledServices = 9;
 }
 
 message SSHKeysMessage {
