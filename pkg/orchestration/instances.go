@@ -130,7 +130,7 @@ type InstanceRemovalOptions struct {
 	Transfer       bool
 }
 
-type InstanceCreationFlags struct {
+type InstanceContainerOptions struct {
 	StartPort       int32
 	PullLatestImage bool
 	Recreate        bool
@@ -138,11 +138,13 @@ type InstanceCreationFlags struct {
 	Privileged      bool
 }
 
-type InstanceCreationOptions struct {
+type InstanceAuthentication struct {
 	RootPassword string
-	UserName     string
 	UserPassword string
+}
 
+type InstanceOptions struct {
+	UserName     string
 	UserEmail    string
 	UserFullName string
 	SSHKeyURL    string
@@ -634,7 +636,7 @@ func (m *InstancesManager) GetShell(ctx context.Context, cancel func(error), ins
 	}
 }
 
-func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, statusChan chan string, flags InstanceCreationFlags, opts InstanceCreationOptions) {
+func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error), instanceName string, stdoutChan, stderrChan chan []byte, statusChan chan string, flags InstanceContainerOptions, auth InstanceAuthentication, opts InstanceOptions) {
 	unlock := m.lockInstance(instanceName)
 	defer unlock()
 
@@ -838,9 +840,9 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 		// Prepare the config file
 		configFile := config.NewConfig()
 
-		configFile.RootPassword = opts.RootPassword
+		configFile.RootPassword = auth.RootPassword
 		configFile.UserName = opts.UserName
-		configFile.UserPassword = opts.UserPassword
+		configFile.UserPassword = auth.UserPassword
 
 		configFile.UserEmail = opts.UserEmail
 		configFile.UserFullName = opts.UserFullName
@@ -891,24 +893,21 @@ func (m *InstancesManager) ApplyInstance(ctx context.Context, cancel func(error)
 	}
 }
 
-func (m *InstancesManager) GetInstanceConfig(ctx context.Context, instanceName string) (InstanceCreationOptions, error) {
+func (m *InstancesManager) GetInstanceConfig(ctx context.Context, instanceName string) (InstanceOptions, error) {
 	// Get the config file content
 	cfgFileContent, err := m.getFileContentsFromInstance(ctx, instanceName, path.Join(preferencesDirInContainer, preferencesFileInContainer))
 	if err != nil {
-		return InstanceCreationOptions{}, err
+		return InstanceOptions{}, err
 	}
 
 	// Parse the config file
 	cfg := config.NewConfig()
 	if err := cfg.Unmarshal(cfgFileContent); err != nil {
-		return InstanceCreationOptions{}, err
+		return InstanceOptions{}, err
 	}
 
-	return InstanceCreationOptions{
-		RootPassword: cfg.RootPassword,
+	return InstanceOptions{
 		UserName:     cfg.UserEmail,
-		UserPassword: cfg.UserPassword,
-
 		UserEmail:    cfg.UserEmail,
 		UserFullName: cfg.UserFullName,
 		SSHKeyURL:    cfg.SSHKeyURL,
