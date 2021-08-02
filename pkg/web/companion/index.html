@@ -49,13 +49,39 @@
 
           instancesList?.replaceChildren(
             ...res.instances.map((i) => {
-              const el = document.createElement("li");
+              const sshPort = i.Ports.find((p) => p.Service === "ssh")?.Port;
 
-              el.innerText = `${i.InstanceID.Name} (SSH port: ${
-                i.Ports.find((p) => p.Service === "ssh")?.Port
-              })`;
+              const wrapper = document.createElement("li");
 
-              return el;
+              const title = document.createElement("span");
+              title.innerText = `${i.InstanceID.Name} (SSH port: ${sshPort})`;
+
+              const forwardToRemoteButton = document.createElement("button");
+              forwardToRemoteButton.innerText =
+                "Forward from localhost to instance";
+              forwardToRemoteButton.addEventListener("click", async () => {
+                console.log(
+                  `Forwarding from localhost to instance using SSH port ${sshPort}`
+                );
+
+                // TODO: Get SSH user from gRPC config API
+                const sshUser = prompt("SSH user");
+
+                const localAddr = prompt("Local address");
+                const remoteAddr = prompt("Remote address");
+
+                await window.forwardToRemote(
+                  sshPort.toString(),
+                  sshUser,
+                  localAddr,
+                  remoteAddr
+                );
+              });
+
+              wrapper.appendChild(title);
+              wrapper.appendChild(forwardToRemoteButton);
+
+              return wrapper;
             })
           );
         } catch (e) {
