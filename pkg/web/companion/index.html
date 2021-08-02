@@ -70,12 +70,14 @@
                 const localAddr = prompt("Local address");
                 const remoteAddr = prompt("Remote address");
 
-                await window.forwardToRemote(
+                const key = await window.forwardToRemote(
                   sshPort.toString(),
                   sshUser,
                   localAddr,
                   remoteAddr
                 );
+
+                console.log(`Forwarding ${key}`);
               });
 
               wrapper.appendChild(title);

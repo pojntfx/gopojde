@@ -52,33 +52,33 @@ func main() {
 		panic(err)
 	}
 
-	if err := ui.Bind("forwardToRemote", func(sshPort, sshUser, localAddr, remoteAddr string) error {
+	if err := ui.Bind("forwardToRemote", func(sshPort, sshUser, localAddr, remoteAddr string) (string, error) {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		buf, err := ioutil.ReadFile(filepath.Join(home, ".ssh", "id_rsa"))
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		key, err := ssh.ParsePrivateKey(buf)
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		sshTunnelManager := tunnel.NewSSHTunnelManager(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(key)}, func(hostname, fingerprint string) error {
+		sshTunnelManager := tunnel.NewSSHConnection(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(key)}, func(hostname, fingerprint string) error {
 			log.Println(hostname, fingerprint)
 
 			return nil
 		})
 
 		if err := sshTunnelManager.Open(); err != nil {
-			return err
+			return "", err
 		}
 
-		return sshTunnelManager.ForwardToRemote(localAddr, remoteAddr)
+		return sshTunnelManager.AddLocalToRemoteTunnel(localAddr, remoteAddr)
 	}); err != nil {
 		panic(err)
 	}
