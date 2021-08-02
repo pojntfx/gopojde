@@ -3,16 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
+	"github.com/pojntfx/gopojde/pkg/tunnel"
 	"github.com/pojntfx/gopojde/pkg/web"
 	"github.com/zserge/lorca"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -44,6 +48,37 @@ func main() {
 
 	if err := ui.Bind("getInstances", func() (*api.InstanceSummariesMessage, error) {
 		return client.GetInstances(context.Background(), &emptypb.Empty{})
+	}); err != nil {
+		panic(err)
+	}
+
+	if err := ui.Bind("forwardToRemote", func(sshPort, sshUser, localAddr, remoteAddr string) error {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+
+		buf, err := ioutil.ReadFile(filepath.Join(home, ".ssh", "id_rsa"))
+		if err != nil {
+			return err
+		}
+
+		key, err := ssh.ParsePrivateKey(buf)
+		if err != nil {
+			return err
+		}
+
+		sshTunnelManager := tunnel.NewSSHTunnelManager(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(key)}, func(hostname, fingerprint string) error {
+			log.Println(hostname, fingerprint)
+
+			return nil
+		})
+
+		if err := sshTunnelManager.Open(); err != nil {
+			return err
+		}
+
+		return sshTunnelManager.ForwardToRemote(localAddr, remoteAddr)
 	}); err != nil {
 		panic(err)
 	}
