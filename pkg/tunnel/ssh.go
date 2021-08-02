@@ -12,15 +12,16 @@ import (
 )
 
 const (
-	tunnelKeySeperator = "->"
+	tunnelKeySeparator     = "->"
+	sshConnectionSeparator = "@"
 )
 
 func marshalTunnelKey(localAddr string, remoteAddr string) string {
-	return localAddr + tunnelKeySeperator + remoteAddr
+	return localAddr + tunnelKeySeparator + remoteAddr
 }
 
 func unmarshalTunnelKey(key string) (localAddr string, remoteAddr string, err error) {
-	parts := strings.Split(key, tunnelKeySeperator)
+	parts := strings.Split(key, tunnelKeySeparator)
 
 	if len(parts) < 2 {
 		return "", "", errors.New("could not get key: key does not contain two addresses")
@@ -29,10 +30,108 @@ func unmarshalTunnelKey(key string) (localAddr string, remoteAddr string, err er
 	return parts[0], parts[1], nil
 }
 
+func marshalSSHConnectionKey(addr string, user string) string {
+	return user + sshConnectionSeparator + addr
+}
+
+func unmarshalSSHConnectionKey(key string) (addr string, user string, err error) {
+	parts := strings.Split(key, sshConnectionSeparator)
+
+	if len(parts) < 2 {
+		return "", "", errors.New("could not get key: key does not contain user and port")
+	}
+
+	return parts[0], parts[1], nil
+}
+
+type Connection struct {
+	Key     string
+	User    string
+	Address string
+}
+
 type Tunnel struct {
 	Key           string
 	LocalAddress  string
 	RemoteAddress string
+}
+
+type SSHConnectionManager struct {
+	connectionLock sync.Mutex
+	connections    map[string]*SSHConnection
+}
+
+func NewSSHConnectionManager() *SSHConnectionManager {
+	return &SSHConnectionManager{
+		connections: map[string]*SSHConnection{},
+	}
+}
+
+func (m *SSHConnectionManager) GetOrCreateSSHConnection(sshAddr string, sshUser string, sshAuth []ssh.AuthMethod, sshHostKeyCallback func(hostname string, fingerprint string) error) (string, *SSHConnection, error) {
+	m.connectionLock.Lock()
+	defer m.connectionLock.Unlock()
+
+	// Store the connection in memory if it does not already exist
+	key := marshalSSHConnectionKey(sshAddr, sshUser)
+	conn := m.connections[key]
+	if conn == nil {
+		// Create a new SSH connection
+		conn = NewSSHConnection(sshAddr, sshUser, sshAuth, sshHostKeyCallback)
+
+		// Open the SSH connection
+		if err := conn.Open(); err != nil {
+			return "", nil, err
+		}
+
+		m.connections[key] = conn
+	}
+
+	return key, conn, nil
+}
+
+func (m *SSHConnectionManager) GetConnections() ([]Connection, error) {
+	connections := []Connection{}
+	for key := range m.connections {
+		addr, user, err := unmarshalSSHConnectionKey(key)
+		if err != nil {
+			return []Connection{}, err
+		}
+
+		connections = append(connections, Connection{
+			Key:     key,
+			User:    user,
+			Address: addr,
+		})
+	}
+
+	return connections, nil
+}
+
+func (m *SSHConnectionManager) GetConnection(key string) (*SSHConnection, error) {
+	connection := m.connections[key]
+	if connection == nil {
+		return &SSHConnection{}, errors.New("could not get connection: connection does not exist")
+	}
+
+	return connection, nil
+}
+
+func (c *SSHConnectionManager) RemoveConnection(key string) error {
+	c.connectionLock.Lock()
+	defer c.connectionLock.Unlock()
+
+	connections := c.connections[key]
+	if connections == nil {
+		return errors.New("could not remove connection: connection does not exist")
+	}
+
+	if err := connections.Close(); err != nil {
+		return err
+	}
+
+	delete(c.connections, key)
+
+	return nil
 }
 
 type SSHConnection struct {
@@ -85,7 +184,17 @@ func (c *SSHConnection) Close() error {
 		return nil
 	}
 
-	return c.sshConn.Close()
+	for _, conn := range c.tunnels {
+		_ = conn.Close() // Ignore closing errors; we're tearing down
+	}
+
+	if err := c.sshConn.Close(); err != nil {
+		return nil
+	}
+
+	c.sshConn = nil
+
+	return nil
 }
 
 func (c *SSHConnection) GetTunnels() ([]Tunnel, error) {
@@ -115,12 +224,12 @@ func (c *SSHConnection) RemoveTunnel(key string) error {
 	defer c.tunnelLock.Unlock()
 
 	if c.sshConn == nil {
-		return errors.New("could not close tunnel: connection not open")
+		return errors.New("could not remove tunnel: connection not open")
 	}
 
 	tunnel := c.tunnels[key]
 	if tunnel == nil {
-		return errors.New("could not close tunnel: tunnel does not exist")
+		return errors.New("could not remove tunnel: tunnel does not exist")
 	}
 
 	if err := tunnel.Close(); err != nil {
@@ -140,15 +249,22 @@ func (c *SSHConnection) AddLocalToRemoteTunnel(localAddr string, remoteAddr stri
 		return "", errors.New("could not forward to remote: connection not open")
 	}
 
-	// Bind to the desired remote address behind the SSH server
-	remote, err := c.sshConn.Listen("tcp", remoteAddr)
-	if err != nil {
-		return "", err
-	}
-
-	// Store the tunnel in memory
+	// Store the tunnel in memory if it does not already exist
 	key := marshalTunnelKey(localAddr, remoteAddr)
-	c.tunnels[key] = remote
+	remote := c.tunnels[key]
+	if remote == nil {
+		// Bind to the desired remote address behind the SSH server
+		r, err := c.sshConn.Listen("tcp", remoteAddr)
+		if err != nil {
+			return "", err
+		}
+
+		remote = r
+		c.tunnels[key] = remote
+	} else {
+		// Tunnel is already forwarded
+		return key, nil
+	}
 
 	// Start forwarding
 	go func() {
