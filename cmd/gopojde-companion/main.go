@@ -38,6 +38,8 @@ func main() {
 	}
 	defer conn.Close()
 
+	sshConns := tunnel.NewSSHConnectionManager()
+
 	client := api.NewInstancesServiceClient(conn)
 
 	if err := ui.Bind("start", func() {
@@ -63,22 +65,20 @@ func main() {
 			return "", err
 		}
 
-		key, err := ssh.ParsePrivateKey(buf)
+		sshKey, err := ssh.ParsePrivateKey(buf)
 		if err != nil {
 			return "", err
 		}
 
-		sshTunnelManager := tunnel.NewSSHConnection(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(key)}, func(hostname, fingerprint string) error {
+		_, tunnel, err := sshConns.GetOrCreateSSHConnection(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(sshKey)}, func(hostname, fingerprint string) error {
 			log.Println(hostname, fingerprint)
-
 			return nil
 		})
-
-		if err := sshTunnelManager.Open(); err != nil {
+		if err != nil {
 			return "", err
 		}
 
-		return sshTunnelManager.AddLocalToRemoteTunnel(localAddr, remoteAddr)
+		return tunnel.AddLocalToRemoteTunnel(localAddr, remoteAddr)
 	}); err != nil {
 		panic(err)
 	}
