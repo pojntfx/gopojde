@@ -70,14 +70,25 @@
                 const localAddr = prompt("Local address");
                 const remoteAddr = prompt("Remote address");
 
-                const key = await window.forwardToRemote(
-                  sshPort.toString(),
-                  sshUser,
-                  localAddr,
-                  remoteAddr
+                const { ConnectionKey, TunnelKey } =
+                  await window.forwardToRemote(
+                    sshPort.toString(),
+                    sshUser,
+                    localAddr,
+                    remoteAddr
+                  );
+
+                console.log(`Forwarding ${ConnectionKey} ${TunnelKey}`);
+
+                const tunnels = await window.getTunnelsForInstance(
+                  ConnectionKey
                 );
 
-                console.log(`Forwarding ${key}`);
+                console.log(
+                  `Known tunnels for this connection: ${JSON.stringify(
+                    tunnels
+                  )}`
+                );
               });
 
               wrapper.appendChild(title);
