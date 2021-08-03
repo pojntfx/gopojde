@@ -21,6 +21,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type ConnectionAndTunnelKey struct {
+	ConnectionKey string
+	TunnelKey     string
+}
+
 func main() {
 	if runtime.GOOS == "linux" {
 		os.Args = append(os.Args, "--class=gopojde Companion") // No need to quote the `--class` flag, it is already escaped
@@ -54,31 +59,50 @@ func main() {
 		panic(err)
 	}
 
-	if err := ui.Bind("forwardToRemote", func(sshPort, sshUser, localAddr, remoteAddr string) (string, error) {
+	if err := ui.Bind("getTunnelsForInstance", func(instanceKey string) ([]tunnel.Tunnel, error) {
+		instance, err := sshConns.GetConnection(instanceKey)
+		if err != nil {
+			return []tunnel.Tunnel{}, err
+		}
+
+		return instance.GetTunnels()
+	}); err != nil {
+		panic(err)
+	}
+
+	if err := ui.Bind("forwardToRemote", func(sshPort, sshUser, localAddr, remoteAddr string) (ConnectionAndTunnelKey, error) {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return "", err
+			return ConnectionAndTunnelKey{}, err
 		}
 
 		buf, err := ioutil.ReadFile(filepath.Join(home, ".ssh", "id_rsa"))
 		if err != nil {
-			return "", err
+			return ConnectionAndTunnelKey{}, err
 		}
 
 		sshKey, err := ssh.ParsePrivateKey(buf)
 		if err != nil {
-			return "", err
+			return ConnectionAndTunnelKey{}, err
 		}
 
-		_, tunnel, err := sshConns.GetOrCreateSSHConnection(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(sshKey)}, func(hostname, fingerprint string) error {
+		connectionKey, tunnel, err := sshConns.GetOrCreateSSHConnection(net.JoinHostPort("localhost", sshPort), sshUser, []ssh.AuthMethod{ssh.PublicKeys(sshKey)}, func(hostname, fingerprint string) error {
 			log.Println(hostname, fingerprint)
 			return nil
 		})
 		if err != nil {
-			return "", err
+			return ConnectionAndTunnelKey{}, err
 		}
 
-		return tunnel.AddLocalToRemoteTunnel(localAddr, remoteAddr)
+		tunnelKey, err := tunnel.AddLocalToRemoteTunnel(localAddr, remoteAddr)
+		if err != nil {
+			return ConnectionAndTunnelKey{}, err
+		}
+
+		return ConnectionAndTunnelKey{
+			ConnectionKey: connectionKey,
+			TunnelKey:     tunnelKey,
+		}, nil
 	}); err != nil {
 		panic(err)
 	}
