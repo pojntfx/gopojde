@@ -7,7 +7,9 @@ require (
 	github.com/containerd/containerd v1.5.4 // indirect
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/fullstorydev/grpcurl v1.8.2 // indirect
 	github.com/golang/protobuf v1.5.2
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
 	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/kataras/compress v0.0.6

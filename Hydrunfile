@@ -1,11 +1,23 @@
 #!/bin/bash
 
+# Install native dependencies
+apt update
+apt install -y curl make sudo protobuf-compiler
+
+# Fix certificate authorities on armv7
+export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+
 # Install bagop
 curl -L -o /tmp/bagop "https://github.com/pojntfx/bagop/releases/latest/download/bagop.linux-$(uname -m)"
 install /tmp/bagop /usr/local/bin
 
-# Build backend
-bagop -j "$(nproc)" -b gopojde-backend -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -p "go build -a -ldflags '-extldflags \"-static\"' -o \$DST cmd/gopojde-backend/main.go"
+# Install dependencies
+USER=root make depend
 
-# Build frontend
-bagop -j "$(nproc)" -b gopojde-companion -x '(android/*|ios/*|plan9/*)' -p "go build -a -ldflags '-extldflags \"-static\"' -o \$DST cmd/gopojde-companion/main.go"
+# Make release
+if [ "$1" = 'frontend' ]; then
+    make release-frontend release-frontend-github-pages
+else
+    bagop -j "$(nproc)" -b gopojde-backend -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-backend -p 'make release-backend DST=$DST'
+    bagop -j "$(nproc)" -b gopojde-companion -x '(android/*|ios/*|plan9/*)' -d out/release/gopojde-companion -p 'make release-companion DST=$DST'
+fi

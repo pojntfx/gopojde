@@ -19,8 +19,10 @@ jobs:
         run: |
           curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
           sudo install /tmp/hydrun /usr/local/bin
-      - name: Build with hydrun
+      - name: Build backend and companion with hydrun
         run: hydrun -o golang ./Hydrunfile
+      - name: Build frontend with hydrun
+        run: hydrun -o golang "./Hydrunfile frontend"
       - name: Publish pre-release to GitHub releases
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -29,7 +31,9 @@ jobs:
           automatic_release_tag: unstable
           prerelease: true
           files: |
-            out/*
+            out/release/gopojde-backend/*
+            out/release/gopojde-companion/*
+            out/release/gopojde-frontend/*
       - name: Publish release to GitHub releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: marvinpinto/action-automatic-releases@latest
@@ -37,4 +41,14 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
-            out/*
+            out/release/gopojde-backend/*
+            out/release/gopojde-companion/*
+            out/release/gopojde-frontend/*
+      - name: Publish release to GitHub pages
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: JamesIves/github-pages-deploy-action@4.1.0
+        with:
+          branch: gh-pages
+          folder: out/release/gopojde-frontend-github-pages
+          git-config-name: GitHub Pages Bot
+          git-config-email: bot@example.com
