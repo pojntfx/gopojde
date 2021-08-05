@@ -3,39 +3,39 @@ all: build
 daemon:
 	go build -o out/gopojde-daemon/gopojde-daemon cmd/gopojde-daemon/main.go
 
-manager-browser:
-	mkdir -p pkg/web/manager/web out/gopojde-manager-browser
+manager-web:
+	mkdir -p pkg/web/manager/web out/gopojde-manager-web
 	GOOS=js GOARCH=wasm go build -o pkg/web/manager/web/app.wasm cmd/gopojde-manager/main.go
-	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go -build -out pkg/web/manager
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --out pkg/web/manager
 	cp -rn web/manager/* pkg/web/manager/web
-	cp -rn pkg/web/manager/* out/gopojde-manager-browser
+	cp -rn pkg/web/manager/* out/gopojde-manager-web
 
-manager-wrapper: manager-browser
-	go build -o out/gopojde-manager-wrapper/gopojde-manager cmd/gopojde-manager/main.go
+manager-native: manager-web
+	go build -o out/gopojde-manager-native/gopojde-manager cmd/gopojde-manager/main.go
 
-build: daemon manager-browser manager-wrapper
+build: daemon manager-web manager-native
 
 release-daemon:
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-daemon/main.go
 
-release-manager-browser: manager-browser
+release-manager-web: manager-web
 	mkdir -p out/release/gopojde-manager
-	cd out/gopojde-manager-browser && tar -czvf ../release/gopojde-manager/gopojde-manager.tar.gz .
+	cd out/gopojde-manager-web && tar -czvf ../release/gopojde-manager/gopojde-manager.tar.gz .
 
-release-manager-browser-github-pages: manager-browser
+release-manager-web-github-pages: manager-web
 	mkdir -p out/release/gopojde-manager-github-pages
-	cp -rn out/gopojde-manager-browser/* out/release/gopojde-manager-github-pages
-	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go -build -path gopojde -out pkg/web/manager
+	cp -rn out/gopojde-manager-web/* out/release/gopojde-manager-github-pages
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-github-pages
 
-release-manager-wrapper: manager-browser
-	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-wrapper/gopojde-wrapper.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
+release-manager-native: manager-web
+	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-native.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
 
-release: release-daemon release-manager-browser release-manager-browser-github-pages release-manager-wrapper
+release: release-daemon release-manager-web release-manager-web-github-pages release-manager-native
 
-install: release-daemon release-manager-wrapper
+install: release-daemon release-manager-native
 	sudo install out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) /usr/local/bin/gopojde-daemon
 	sudo setcap cap_net_bind_service+ep /usr/local/bin/gopojde-daemon
-	sudo install out/release/gopojde-manager-wrapper/gopojde-manager.linux-$$(uname -m) /usr/local/bin/gopojde-manager
+	sudo install out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) /usr/local/bin/gopojde-manager
 	
 dev:
 	while [ -z "$$DAEMON_PID" ] || [ -n "$$(inotifywait -q -r -e modify pkg cmd pkg/web/manager/*.css)" ]; do\
