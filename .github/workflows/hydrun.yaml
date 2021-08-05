@@ -7,6 +7,21 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - bin: gopojde-daemon
+            exclude: (android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)
+            dist: gopojde-daemon
+            target: release-daemon
+          - bin: gopojde-manager
+            exclude: (android/*|ios/*|plan9/*)
+            dist: gopojde-manager-native
+            target: release-manager-native
+          - bin: gopojde-companion
+            exclude: (android/*|ios/*|plan9/*)
+            dist: gopojde-companion-native
+            target: release-companion-native
 
     steps:
       - name: Checkout
@@ -20,7 +35,30 @@ jobs:
           curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
           sudo install /tmp/hydrun /usr/local/bin
       - name: Build with hydrun
-        run: hydrun -o golang ./Hydrunfile
+        run: hydrun -o golang "./Hydrunfile && bagop -j \"$(nproc)\" -b '${{ matrix.project.bin }}' -x '${{ matrix.project.exclude }}' -d 'out/release/${{ matrix.project.dist }}' -p 'make ${{ matrix.project.target }} DST=$DST'"
+      - name: Fix permissions for output
+        run: sudo chown -R $USER .
+      - name: Upload output
+        uses: actions/upload-artifact@v2
+        with:
+          path: |
+            out/release/gopojde-daemon/*
+            out/release/gopojde-manager-web/*
+            out/release/gopojde-manager-native/*
+            out/release/gopojde-companion-web/*
+            out/release/gopojde-companion-native/*
+
+  publish-linux:
+    runs-on: ubuntu-latest
+    needs: build-linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Download output
+        uses: actions/download-artifact@v2
+        with:
+          path: /tmp/out
       - name: Publish pre-release to GitHub releases
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -29,11 +67,7 @@ jobs:
           automatic_release_tag: unstable
           prerelease: true
           files: |
-            out/release/gopojde-daemon/*
-            out/release/gopojde-manager-web/*
-            out/release/gopojde-manager-native/*
-            out/release/gopojde-companion-web/*
-            out/release/gopojde-companion-native/*
+            /tmp/out/*
       - name: Publish release to GitHub releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: marvinpinto/action-automatic-releases@latest
@@ -41,11 +75,24 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
           files: |
-            out/release/gopojde-daemon/*
-            out/release/gopojde-manager-web/*
-            out/release/gopojde-manager-native/*
-            out/release/gopojde-companion-web/*
-            out/release/gopojde-companion-native/*
+            /tmp/out/*
+
+  pages-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Set up hydrun
+        run: |
+          curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
+          sudo install /tmp/hydrun /usr/local/bin
+      - name: Build with hydrun
+        run: hydrun -o golang "./Hydrunfile && make release-manager-web-github-pages"
       - name: Publish release to GitHub pages
         if: startsWith(github.ref, 'refs/tags/v')
         uses: JamesIves/github-pages-deploy-action@4.1.0
