@@ -4,16 +4,26 @@ daemon:
 	go build -o out/gopojde-daemon/gopojde-daemon cmd/gopojde-daemon/main.go
 
 manager-web:
-	mkdir -p pkg/web/manager/web out/gopojde-manager-web
-	GOOS=js GOARCH=wasm go build -o pkg/web/manager/web/app.wasm cmd/gopojde-manager/main.go
-	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --out pkg/web/manager
-	cp -rn web/manager/* pkg/web/manager/web
-	cp -rn pkg/web/manager/* out/gopojde-manager-web
+	mkdir -p pkg/web/manager/assets/web out/gopojde-manager-web
+	cp -rn web/manager/* pkg/web/manager/assets/web
+	GOOS=js GOARCH=wasm go build -o pkg/web/manager/assets/web/app.wasm cmd/gopojde-manager/main.go
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --out pkg/web/manager/assets
+	cp -rn pkg/web/manager/assets/* out/gopojde-manager-web
 
 manager-native: manager-web
 	go build -o out/gopojde-manager-native/gopojde-manager cmd/gopojde-manager/main.go
 
-build: daemon manager-web manager-native
+companion-web:
+	mkdir -p pkg/web/companion/assets/web out/gopojde-companion-web
+	cp -rn web/companion/* pkg/web/companion/assets/web
+	GOOS=js GOARCH=wasm go build -o pkg/web/companion/assets/web/app.wasm cmd/gopojde-companion/main.go
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --out pkg/web/companion/assets
+	cp -rn pkg/web/companion/assets/* out/gopojde-companion-web
+
+companion-native: companion-web
+	go build -o out/gopojde-companion-native/gopojde-companion cmd/gopojde-companion/main.go
+
+build: daemon manager-web manager-native companion-web companion-native
 
 release-daemon:
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-daemon/main.go
@@ -28,30 +38,44 @@ release-manager-web-github-pages: manager-web
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-github-pages
 
 release-manager-native: manager-web
-	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-native.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
+	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
 
-release: release-daemon release-manager-web release-manager-web-github-pages release-manager-native
+release-companion-web: companion-web
+	mkdir -p out/release/gopojde-companion
+	cd out/gopojde-companion-web && tar -czvf ../release/gopojde-companion/gopojde-companion.tar.gz .
 
-install: release-daemon release-manager-native
+release-companion-web-github-pages: companion-web
+	mkdir -p out/release/gopojde-companion-github-pages
+	cp -rn out/gopojde-companion-web/* out/release/gopojde-companion-github-pages
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --path gopojde --out out/release/gopojde-companion-github-pages
+
+release-companion-native: companion-web
+	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-companion-native/gopojde-companion.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-companion/main.go
+
+release: release-daemon release-manager-web release-manager-web-github-pages release-manager-native release-companion-web release-companion-web-github-pages release-companion-native
+
+install: release-daemon release-manager-native release-companion-native
 	sudo install out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) /usr/local/bin/gopojde-daemon
-	sudo setcap cap_net_bind_service+ep /usr/local/bin/gopojde-daemon
 	sudo install out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) /usr/local/bin/gopojde-manager
+	sudo install out/release/gopojde-companion-native/gopojde-companion.linux-$$(uname -m) /usr/local/bin/gopojde-companion
 	
 dev:
-	while [ -z "$$DAEMON_PID" ] || [ -n "$$(inotifywait -q -r -e modify pkg cmd pkg/web/manager/*.css)" ]; do\
+	while [ -z "$$DAEMON_PID" ] || [ -n "$$(inotifywait -q -r -e modify pkg cmd web/manager web/companion)" ]; do\
 		$(MAKE);\
 		kill -9 $$DAEMON_PID 2>/dev/null 1>&2;\
 		kill -9 $$MANAGER_PID 2>/dev/null 1>&2;\
-		wait $$DAEMON_PID $$MANAGER_PID;\
-		sudo setcap cap_net_bind_service+ep out/gopojde-daemon/gopojde-daemon;\
+		kill -9 $$COMPANION_PID 2>/dev/null 1>&2;\
+		wait $$DAEMON_PID $$MANAGER_PID $$COMPANION_PID;\
 		out/gopojde-daemon/gopojde-daemon & export DAEMON_PID="$$!";\
-		/tmp/gopojde-manager-build -serve & export MANAGER_PID="$$!";\
+		BUILDER=true go run cmd/gopojde-manager/main.go --serve & export MANAGER_PID="$$!";\
+		out/gopojde-companion-native/gopojde-companion & export COMPANION_PID="$$!";\
 	done
 
 clean:
 	rm -rf out
 	rm -rf pkg/api/proto/v1
-	rm -rf pkg/web/manager
+	rm -rf pkg/web/manager/assets
+	rm -rf pkg/web/companion/assets
 
 depend:
 	# Setup CLIs

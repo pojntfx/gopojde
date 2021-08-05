@@ -32,6 +32,8 @@ jobs:
             out/release/gopojde-daemon/*
             out/release/gopojde-manager-web/*
             out/release/gopojde-manager-native/*
+            out/release/gopojde-companion-web/*
+            out/release/gopojde-companion-native/*
       - name: Publish release to GitHub releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: marvinpinto/action-automatic-releases@latest
@@ -42,11 +44,13 @@ jobs:
             out/release/gopojde-daemon/*
             out/release/gopojde-manager-web/*
             out/release/gopojde-manager-native/*
+            out/release/gopojde-companion-web/*
+            out/release/gopojde-companion-native/*
       - name: Publish release to GitHub pages
         if: startsWith(github.ref, 'refs/tags/v')
         uses: JamesIves/github-pages-deploy-action@4.1.0
         with:
           branch: gh-pages
-          folder: out/release/gopojde-manager-github-pages
+          folder: out/release/gopojde-manager-web-github-pages
           git-config-name: GitHub Pages Bot
           git-config-email: bot@example.com

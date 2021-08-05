@@ -1,7 +1,7 @@
 // +build wasm,js
 
-package web
+package manager
 
 import "embed"
 
-var ManagerFS embed.FS
+var FS embed.FS

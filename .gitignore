@@ -1,3 +1,2 @@
 out
-pkg/web/*
-!pkg/web/index_*.go
+assets
