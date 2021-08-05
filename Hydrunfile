@@ -16,8 +16,8 @@ USER=root make depend
 
 # Make release
 if [ "$1" = 'frontend' ]; then
-    make release-frontend release-frontend-github-pages
+    make release-manager release-manager-github-pages
 else
     bagop -j "$(nproc)" -b gopojde-backend -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-backend -p 'make release-backend DST=$DST'
-    bagop -j "$(nproc)" -b gopojde-companion -x '(android/*|ios/*|plan9/*)' -d out/release/gopojde-companion -p 'make release-companion DST=$DST'
+    bagop -j "$(nproc)" -b gopojde-manager-wrapper -x '(android/*|ios/*|plan9/*)' -d out/release/gopojde-manager-wrapper -p 'make release-manager-wrapper DST=$DST'
 fi
