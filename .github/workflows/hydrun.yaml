@@ -15,11 +15,11 @@ jobs:
             dist: gopojde-daemon
             target: release-daemon
           - bin: gopojde-manager
-            exclude: (android/*|ios/*|plan9/*)
+            exclude: (android/*|ios/*|plan9/*|aix/ppc64)
             dist: gopojde-manager-native
             target: release-manager-native
           - bin: gopojde-companion
-            exclude: (android/*|ios/*|plan9/*)
+            exclude: (android/*|ios/*|plan9/*|aix/ppc64)
             dist: gopojde-companion-native
             target: release-companion-native
 
