@@ -29,25 +29,25 @@ release-daemon:
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-daemon/main.go
 
 release-manager-web: manager-web
-	mkdir -p out/release/gopojde-manager
-	cd out/gopojde-manager-web && tar -czvf ../release/gopojde-manager/gopojde-manager.tar.gz .
+	mkdir -p out/release/gopojde-manager-web
+	cd out/gopojde-manager-web && tar -czvf ../release/gopojde-manager-web/gopojde-manager.tar.gz .
 
 release-manager-web-github-pages: manager-web
-	mkdir -p out/release/gopojde-manager-github-pages
-	cp -rn out/gopojde-manager-web/* out/release/gopojde-manager-github-pages
-	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-github-pages
+	mkdir -p out/release/gopojde-manager-web-github-pages
+	cp -rn out/gopojde-manager-web/* out/release/gopojde-manager-web-github-pages
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-web-github-pages
 
 release-manager-native: manager-web
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
 
 release-companion-web: companion-web
-	mkdir -p out/release/gopojde-companion
-	cd out/gopojde-companion-web && tar -czvf ../release/gopojde-companion/gopojde-companion.tar.gz .
+	mkdir -p out/release/gopojde-companion-web
+	cd out/gopojde-companion-web && tar -czvf ../release/gopojde-companion-web/gopojde-companion.tar.gz .
 
 release-companion-web-github-pages: companion-web
-	mkdir -p out/release/gopojde-companion-github-pages
-	cp -rn out/gopojde-companion-web/* out/release/gopojde-companion-github-pages
-	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --path gopojde --out out/release/gopojde-companion-github-pages
+	mkdir -p out/release/gopojde-companion-web-github-pages
+	cp -rn out/gopojde-companion-web/* out/release/gopojde-companion-web-github-pages
+	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --path gopojde --out out/release/gopojde-companion-web-github-pages
 
 release-companion-native: companion-web
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-companion-native/gopojde-companion.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-companion/main.go
@@ -74,8 +74,7 @@ dev:
 clean:
 	rm -rf out
 	rm -rf pkg/api/proto/v1
-	rm -rf pkg/web/manager/assets
-	rm -rf pkg/web/companion/assets
+	rm -rf pkg/web/*/assets
 
 depend:
 	# Setup CLIs
