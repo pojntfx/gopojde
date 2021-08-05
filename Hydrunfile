@@ -17,3 +17,4 @@ USER=root make depend
 # Make release
 bagop -j "$(nproc)" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=$DST'
 bagop -j "$(nproc)" -b gopojde-manager -x '(android/*|ios/*|plan9/*)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=$DST'
+bagop -j "$(nproc)" -b gopojde-companion -x '(android/*|ios/*|plan9/*)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=$DST'

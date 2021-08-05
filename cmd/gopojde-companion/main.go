@@ -13,7 +13,7 @@ import (
 	"github.com/kataras/compress"
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
 	"github.com/pojntfx/gopojde/pkg/components"
-	"github.com/pojntfx/gopojde/pkg/web/manager"
+	"github.com/pojntfx/gopojde/pkg/web/companion"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zserge/lorca"
@@ -31,7 +31,7 @@ func main() {
 	// Web code
 	{
 		// Define the routes
-		app.Route("/", &components.ManagerHome{})
+		app.Route("/", &components.CompanionHome{})
 
 		// Start the app
 		app.RunWhenOnBrowser()
@@ -42,7 +42,7 @@ func main() {
 		if os.Getenv("BUILDER") == "true" {
 			// Create command
 			cmd := &cobra.Command{
-				Use:   "gopojde-manager",
+				Use:   "gopojde-companion",
 				Short: "Experimental Go implementation of https://github.com/pojntfx/pojde.",
 				Long: `Experimental Go implementation of https://github.com/pojntfx/pojde.
 
@@ -95,7 +95,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 
 					// Serve if specified
 					if viper.GetBool(serveKey) {
-						log.Printf("gopojde manager listening on %v", viper.GetString(laddrKey))
+						log.Printf("gopojde companion listening on %v", viper.GetString(laddrKey))
 
 						if err := http.ListenAndServe(viper.GetString(laddrKey), compress.Handler(h)); err != nil {
 							return err
@@ -108,16 +108,16 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 
 			// Bind flags
 			cmd.PersistentFlags().Bool(buildKey, false, "Create static build")
-			cmd.PersistentFlags().String(outKey, "out/gopojde-manager-web", "Out directory for static build")
+			cmd.PersistentFlags().String(outKey, "out/gopojde-companion-web", "Out directory for static build")
 			cmd.PersistentFlags().String(pathKey, "", "Base path for static build")
-			cmd.PersistentFlags().Bool(serveKey, false, "Build and serve the manager")
-			cmd.PersistentFlags().String(laddrKey, "localhost:15325", "Address to serve the manager on")
+			cmd.PersistentFlags().Bool(serveKey, false, "Build and serve the companion")
+			cmd.PersistentFlags().String(laddrKey, "localhost:15326", "Address to serve the companion on")
 
 			// Bind env variables
 			if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
 				log.Fatal(err)
 			}
-			viper.SetEnvPrefix("gopojde_manager")
+			viper.SetEnvPrefix("gopojde_companion")
 			viper.AutomaticEnv()
 
 			// Run command
@@ -133,11 +133,11 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 	{
 		// Name the instance
 		if runtime.GOOS == "linux" {
-			os.Args = append(os.Args, "--class=gopojde Manager")
+			os.Args = append(os.Args, "--class=gopojde Companion")
 		}
 
 		// Spawn Chromium instance
-		ui, err := lorca.New("", "", 640, 480, os.Args...)
+		ui, err := lorca.New("", "", 480, 640, os.Args...)
 		if err != nil {
 			log.Fatal("could not spawn Chromium instance:", err)
 		}
@@ -150,8 +150,8 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 		}
 		defer lis.Close()
 
-		// Serve the compiled manager
-		root, err := fs.Sub(manager.FS, "assets")
+		// Serve the compiled companion
+		root, err := fs.Sub(companion.FS, "assets")
 		if err != nil {
 			log.Fatal("could not get embedded root filesystem:", err)
 		}
