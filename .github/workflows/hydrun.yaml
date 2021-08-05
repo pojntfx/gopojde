@@ -30,8 +30,8 @@ jobs:
           prerelease: true
           files: |
             out/release/gopojde-daemon/*
-            out/release/gopojde-manager-browser/*
-            out/release/gopojde-manager-wrapper/*
+            out/release/gopojde-manager-web/*
+            out/release/gopojde-manager-native/*
       - name: Publish release to GitHub releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: marvinpinto/action-automatic-releases@latest
@@ -40,8 +40,8 @@ jobs:
           prerelease: false
           files: |
             out/release/gopojde-daemon/*
-            out/release/gopojde-manager-browser/*
-            out/release/gopojde-manager-wrapper/*
+            out/release/gopojde-manager-web/*
+            out/release/gopojde-manager-native/*
       - name: Publish release to GitHub pages
         if: startsWith(github.ref, 'refs/tags/v')
         uses: JamesIves/github-pages-deploy-action@4.1.0
