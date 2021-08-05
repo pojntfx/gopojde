@@ -20,7 +20,7 @@ const (
 func main() {
 	// Create command
 	cmd := &cobra.Command{
-		Use:   "gopojde-backend",
+		Use:   "gopojde-daemon",
 		Short: "Experimental Go implementation of https://github.com/pojntfx/pojde.",
 		Long: `Experimental Go implementation of https://github.com/pojntfx/pojde.
 
@@ -41,7 +41,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 				log.Fatal("could not connect to Docker:", err)
 			}
 
-			// Create orchestration backends
+			// Create orchestration daemons
 			instancesManager := orchestration.NewInstancesManager(docker)
 
 			// Create services
@@ -51,7 +51,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 			srv := servers.NewGRPCServer(viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey), instancesService)
 
 			// Start servers
-			log.Printf("gopojde backend listening on %v (gRPC) and %v (gRPC-Web)", viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey))
+			log.Printf("gopojde daemon listening on %v (gRPC) and %v (gRPC-Web)", viper.GetString(listenAddressKey), viper.GetString(websocketListenAddressKey))
 
 			return srv.ListenAndServe()
 		},
@@ -67,7 +67,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
 		log.Fatal(err)
 	}
-	viper.SetEnvPrefix("gopojde_backend")
+	viper.SetEnvPrefix("gopojde_daemon")
 	viper.AutomaticEnv()
 
 	// Run command
