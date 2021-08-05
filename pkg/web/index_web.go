@@ -1,6 +1,9 @@
+// +build wasm,js
+
 package web
 
 import "embed"
 
-//go:embed companion
 var CompanionFS embed.FS
+
+var ManagerFS embed.FS

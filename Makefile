@@ -6,15 +6,18 @@ backend:
 companion:
 	go build -o out/gopojde-companion/gopojde-companion cmd/gopojde-companion/main.go
 
-frontend:
-	rm -f web/app.wasm
-	GOOS=js GOARCH=wasm go build -o web/app.wasm cmd/gopojde-frontend/main.go
-	go build -o /tmp/gopojde-frontend-build cmd/gopojde-frontend/main.go
-	rm -rf out/gopojde-frontend
-	/tmp/gopojde-frontend-build -build
-	cp -r web/* out/gopojde-frontend/web
+manager-browser:
+	rm -rf pkg/web/manager out/gopojde-manager-browser
+	mkdir -p pkg/web/manager/web out/gopojde-manager-browser
+	GOOS=js GOARCH=wasm go build -o pkg/web/manager/web/app.wasm cmd/gopojde-manager/main.go
+	BUILDER=true go run cmd/gopojde-manager/main.go -build -out pkg/web/manager
+	cp -r web/manager/* pkg/web/manager/web
+	cp -r pkg/web/manager/* out/gopojde-manager-browser
 
-build: backend companion frontend
+manager-wrapper: manager-browser
+	go build -o out/gopojde-manager-wrapper/gopojde-manager cmd/gopojde-manager/main.go
+
+build: backend companion manager-wrapper
 
 release-backend:
 	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-backend/gopojde-backend.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-backend/main.go
@@ -41,7 +44,7 @@ install: release-backend release-companion
 	sudo install out/release/gopojde-companion/gopojde-companion.linux-$$(uname -m) /usr/local/bin/gopojde-companion
 	
 dev:
-	while [ -z "$$BACKEND_PID" ] || [ -n "$$(inotifywait -q -r -e modify pkg cmd web/*.css)" ]; do\
+	while [ -z "$$BACKEND_PID" ] || [ -n "$$(inotifywait -q -r -e modify pkg cmd pkg/web/frontend/*.css)" ]; do\
 		$(MAKE);\
 		kill -9 $$BACKEND_PID 2>/dev/null 1>&2;\
 		kill -9 $$COMPANION_PID 2>/dev/null 1>&2;\

@@ -1,2 +1,3 @@
-web/*.wasm
 out
+pkg/web/manager
+!pkg/web/index*.go
