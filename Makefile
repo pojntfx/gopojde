@@ -26,7 +26,7 @@ companion-native: companion-web
 build: daemon manager-web manager-native companion-web companion-native
 
 release-daemon:
-	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-daemon/main.go
+	GO386=softfloat CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-daemon/gopojde-daemon.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-daemon/main.go
 
 release-manager-web: manager-web
 	mkdir -p out/release/gopojde-manager-web
@@ -38,7 +38,7 @@ release-manager-web-github-pages: manager-web
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-web-github-pages
 
 release-manager-native: manager-web
-	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
+	GO386=softfloat CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-manager-native/gopojde-manager.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-manager/main.go
 
 release-companion-web: companion-web
 	mkdir -p out/release/gopojde-companion-web
@@ -50,7 +50,7 @@ release-companion-web-github-pages: companion-web
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --path gopojde --out out/release/gopojde-companion-web-github-pages
 
 release-companion-native: companion-web
-	go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-companion-native/gopojde-companion.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-companion/main.go
+	GO386=softfloat CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' -o "$(shell [ "$(DST)" = "" ] && echo out/release/gopojde-companion-native/gopojde-companion.linux-$$(uname -m) || echo $(DST) )" cmd/gopojde-companion/main.go
 
 release: release-daemon release-manager-web release-manager-web-github-pages release-manager-native release-companion-web release-companion-web-github-pages release-companion-native
 
