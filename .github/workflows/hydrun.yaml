@@ -12,22 +12,12 @@ jobs:
         target:
           - id: gopojde-daemon
             command: bagop -j \"\$(nproc)\" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=\$DST'
-            output: |
-              out/release/gopojde-daemon/*
           - id: gopojde-manager
             command: bagop -j \"\$(nproc)\" -b gopojde-manager -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=\$DST'
-            output: |
-              out/release/gopojde-manager-web/*
-              out/release/gopojde-manager-native/*
           - id: gopojde-companion
             command: bagop -j \"\$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=\$DST'
-            output: |
-              out/release/gopojde-companion-web/*
-              out/release/gopojde-companion-native/*
           - id: gopojde-manager-web-github-pages
             command: make release-manager-web-github-pages
-            output: |
-              out/release/gopojde-manager-web-github-pages
 
     steps:
       - name: Checkout
@@ -47,9 +37,14 @@ jobs:
       - name: Upload output
         uses: actions/upload-artifact@v2
         with:
-          name: output-${{ matrix.target.id }}
+          name: ${{ matrix.target.id }}
           path: |
-            ${{ matrix.target.output }}
+            out/release/gopojde-daemon/*
+            out/release/gopojde-manager-web/*
+            out/release/gopojde-manager-native/*
+            out/release/gopojde-companion-web/*
+            out/release/gopojde-companion-native/*
+            out/release/gopojde-manager-web-github-pages
 
   publish-linux:
     runs-on: ubuntu-latest
@@ -62,6 +57,10 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           path: /tmp/out
+      - name: Isolate the GitHub pages build
+        run: |
+          mkdir -p /tmp/out-github-pages
+          mv /tmp/out/gopojde-manager-web-github-pages /tmp/out-github-pages
       - name: Publish pre-release to GitHub releases
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -71,7 +70,6 @@ jobs:
           prerelease: true
           files: |
             /tmp/out/**/*
-            !/tmp/out/gopojde-manager-web-github-pages
       - name: Publish release to GitHub releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: marvinpinto/action-automatic-releases@latest
@@ -80,12 +78,11 @@ jobs:
           prerelease: false
           files: |
             /tmp/out/**/*
-            !/tmp/out/gopojde-manager-web-github-pages
       - name: Publish release to GitHub pages
         if: startsWith(github.ref, 'refs/tags/v')
         uses: JamesIves/github-pages-deploy-action@4.1.0
         with:
           branch: gh-pages
-          folder: /tmp/out/gopojde-manager-web-github-pages
+          folder: /tmp/out-github-pages/gopojde-manager-web-github-pages
           git-config-name: GitHub Pages Bot
           git-config-email: bot@example.com
