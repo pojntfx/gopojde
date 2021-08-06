@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -9,14 +11,19 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"time"
 
 	"github.com/kataras/compress"
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
+	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
+	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/components"
 	"github.com/pojntfx/gopojde/pkg/web/companion"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zserge/lorca"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -26,6 +33,11 @@ const (
 	serveKey = "serve"
 	laddrKey = "laddr"
 )
+
+type InstanceAndOptions struct {
+	*api.InstanceSummaryMessage
+	*api.InstanceOptionsMessage
+}
 
 func main() {
 	// Web code
@@ -142,6 +154,50 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 			log.Fatal("could not spawn Chromium instance:", err)
 		}
 		defer ui.Close()
+
+		// Global UI state
+		var daemon api.InstancesServiceClient
+
+		// Register handlers
+		ui.Bind("gopojdeCompanionConnectToDaemon", func(address string) error {
+			conn, err := grpc.Dial(address, grpc.WithContextDialer(websocketproxy.NewWebSocketProxyClient(time.Minute).Dialer), grpc.WithInsecure())
+			if err != nil {
+				return err
+			}
+
+			daemon = api.NewInstancesServiceClient(conn)
+
+			return nil
+		})
+
+		ui.Bind("gopojdeCompanionGetInstances", func() ([]InstanceAndOptions, error) {
+			if daemon == nil {
+				return []InstanceAndOptions{}, errors.New("could not get instances: not connected to daemon")
+			}
+
+			// Get all instances
+			res := []InstanceAndOptions{}
+
+			instances, err := daemon.GetInstances(context.Background(), &emptypb.Empty{})
+			if err != nil {
+				return []InstanceAndOptions{}, err
+			}
+
+			// Get options for each instance
+			for _, instance := range instances.GetInstances() {
+				options, err := daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
+				if err != nil {
+					return []InstanceAndOptions{}, err
+				}
+
+				res = append(res, InstanceAndOptions{
+					InstanceSummaryMessage: instance,
+					InstanceOptionsMessage: options,
+				})
+			}
+
+			return res, nil
+		})
 
 		// Start integrated webserver
 		lis, err := net.Listen("tcp", "localhost:0")

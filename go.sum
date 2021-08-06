@@ -732,6 +732,7 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/pojntfx/bofied v1.1.0 h1:5MkHCggN6op4ByJMMP3iVA6X5buFqdDATl7DoGRqfB8=
 github.com/pojntfx/bofied v1.1.0/go.mod h1:68Xr4IVxyn/FEaYjKRTw1WkEGnqJdxnvmNnfAqFaKGo=
 github.com/pojntfx/go-app-grpc-chat-backend v0.0.0-20200914214506-117c1d64fa06/go.mod h1:AoNSfMsPteqvzjHJ2TwCvmqUu9yc6iujh7J2Vq3329s=
+github.com/pojntfx/go-app-grpc-chat-frontend-web v0.0.0-20200914214440-b28bb959fef9 h1:cvlMbqRg6QV2YcLcKd46vMsQX+JgpMHf4NUq6LEGu44=
 github.com/pojntfx/go-app-grpc-chat-frontend-web v0.0.0-20200914214440-b28bb959fef9/go.mod h1:UTnhMLsCQXzHuVHLEB4hz+A3nudztV4qubJ3zPudJ34=
 github.com/pojntfx/liwasc v0.0.0-20210418112916-18ce29ed848d/go.mod h1:93uY9r3HTavvor+Eh5rz5jqeHENNXFucWffds3/cB8Y=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=

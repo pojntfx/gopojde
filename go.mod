@@ -21,4 +21,5 @@ require (
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	google.golang.org/grpc v1.39.0
 	google.golang.org/protobuf v1.27.1
+	nhooyr.io/websocket v1.8.6 // indirect
 )
