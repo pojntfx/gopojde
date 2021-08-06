@@ -5,20 +5,20 @@ daemon:
 
 manager-web:
 	mkdir -p pkg/web/manager/assets/web out/gopojde-manager-web
-	cp -rn web/manager/* pkg/web/manager/assets/web
+	cp -ru web/manager/* pkg/web/manager/assets/web
 	GOOS=js GOARCH=wasm go build -o pkg/web/manager/assets/web/app.wasm cmd/gopojde-manager/main.go
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --out pkg/web/manager/assets
-	cp -rn pkg/web/manager/assets/* out/gopojde-manager-web
+	cp -ru pkg/web/manager/assets/* out/gopojde-manager-web
 
 manager-native: manager-web
 	go build -o out/gopojde-manager-native/gopojde-manager cmd/gopojde-manager/main.go
 
 companion-web:
 	mkdir -p pkg/web/companion/assets/web out/gopojde-companion-web
-	cp -rn web/companion/* pkg/web/companion/assets/web
+	cp -ru web/companion/* pkg/web/companion/assets/web
 	GOOS=js GOARCH=wasm go build -o pkg/web/companion/assets/web/app.wasm cmd/gopojde-companion/main.go
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --out pkg/web/companion/assets
-	cp -rn pkg/web/companion/assets/* out/gopojde-companion-web
+	cp -ru pkg/web/companion/assets/* out/gopojde-companion-web
 
 companion-native: companion-web
 	go build -o out/gopojde-companion-native/gopojde-companion cmd/gopojde-companion/main.go
@@ -34,7 +34,7 @@ release-manager-web: manager-web
 
 release-manager-web-github-pages: manager-web
 	mkdir -p out/release/gopojde-manager-web-github-pages
-	cp -rn out/gopojde-manager-web/* out/release/gopojde-manager-web-github-pages
+	cp -ru out/gopojde-manager-web/* out/release/gopojde-manager-web-github-pages
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-manager/main.go --build --path gopojde --out out/release/gopojde-manager-web-github-pages
 
 release-manager-native: manager-web
@@ -46,7 +46,7 @@ release-companion-web: companion-web
 
 release-companion-web-github-pages: companion-web
 	mkdir -p out/release/gopojde-companion-web-github-pages
-	cp -rn out/gopojde-companion-web/* out/release/gopojde-companion-web-github-pages
+	cp -ru out/gopojde-companion-web/* out/release/gopojde-companion-web-github-pages
 	BUILDER=true GOOS="" GOARCH="" go run cmd/gopojde-companion/main.go --build --path gopojde --out out/release/gopojde-companion-web-github-pages
 
 release-companion-native: companion-web
