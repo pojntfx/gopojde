@@ -33,6 +33,7 @@ jobs:
       - name: Upload output
         uses: actions/upload-artifact@v2
         with:
+          name: output-${{ matrix.command }}
           path: |
             out/release/gopojde-daemon/*
             out/release/gopojde-manager-web/*
