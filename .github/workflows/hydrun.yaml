@@ -5,23 +5,15 @@ on:
   pull_request:
 
 jobs:
-  build-bins-linux:
+  build-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project:
-          - bin: gopojde-daemon
-            exclude: (android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)
-            dist: gopojde-daemon
-            target: release-daemon
-          - bin: gopojde-manager
-            exclude: (android/*|ios/*|plan9/*|aix/ppc64)
-            dist: gopojde-manager-native
-            target: release-manager-native
-          - bin: gopojde-companion
-            exclude: (android/*|ios/*|plan9/*|aix/ppc64)
-            dist: gopojde-companion-native
-            target: release-companion-native
+        command:
+          - bagop -j \"$(nproc)\" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=$DST'
+          - bagop -j \"$(nproc)\" -b gopojde-manager -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=$DST'
+          - bagop -j \"$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=$DST'
+          - make release-manager-web-github-pages
 
     steps:
       - name: Checkout
@@ -35,7 +27,7 @@ jobs:
           curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
           sudo install /tmp/hydrun /usr/local/bin
       - name: Build with hydrun
-        run: hydrun -o golang "./Hydrunfile && bagop -j \"$(nproc)\" -b '${{ matrix.project.bin }}' -x '${{ matrix.project.exclude }}' -d 'out/release/${{ matrix.project.dist }}' -p 'make ${{ matrix.project.target }} DST=$DST'"
+        run: hydrun -o golang "./Hydrunfile && ${{ matrix.command }}"
       - name: Fix permissions for output
         run: sudo chown -R $USER .
       - name: Upload output
@@ -47,34 +39,11 @@ jobs:
             out/release/gopojde-manager-native/*
             out/release/gopojde-companion-web/*
             out/release/gopojde-companion-native/*
-
-  build-pages-linux:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Set up hydrun
-        run: |
-          curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
-          sudo install /tmp/hydrun /usr/local/bin
-      - name: Build with hydrun
-        run: hydrun -o golang "./Hydrunfile && make release-manager-web-github-pages"
-      - name: Upload output
-        uses: actions/upload-artifact@v2
-        with:
-          path: |
             out/release/gopojde-manager-web-github-pages
 
   publish-linux:
     runs-on: ubuntu-latest
-    needs:
-      - build-bins-linux
-      - build-pages-linux
+    needs: build-linux
 
     steps:
       - name: Checkout
