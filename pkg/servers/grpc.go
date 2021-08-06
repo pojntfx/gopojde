@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/pojntfx/bofied/pkg/websocketproxy"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/services"
+	"github.com/pojntfx/gopojde/pkg/websocketproxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -29,7 +29,7 @@ func NewGRPCServer(listenAddress string, websocketListenAddress string, instance
 }
 
 func (s *GRPCServer) ListenAndServe() error {
-	proxy := websocketproxy.NewWebSocketProxyServer()
+	proxy := websocketproxy.NewWebSocketProxyServer(s.listenAddress)
 	listener, err := net.Listen("tcp", s.listenAddress)
 	if err != nil {
 		return err
