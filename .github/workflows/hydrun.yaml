@@ -12,12 +12,16 @@ jobs:
         target:
           - id: gopojde-daemon
             command: bagop -j \"\$(nproc)\" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=\$DST'
-          - id: gopojde-manager
+          - id: gopojde-manager-native
             command: bagop -j \"\$(nproc)\" -b gopojde-manager -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=\$DST'
-          - id: gopojde-companion
-            command: bagop -j \"\$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=\$DST'
+          - id: gopojde-manager-web
+            command: make release-manager-web
           - id: gopojde-manager-web-github-pages
             command: make release-manager-web-github-pages
+          - id: gopojde-companion-native
+            command: bagop -j \"\$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=\$DST'
+          - id: gopojde-companion-web
+            command: make release-companion-web
 
     steps:
       - name: Checkout
@@ -60,7 +64,7 @@ jobs:
       - name: Isolate the GitHub pages build
         run: |
           mkdir -p /tmp/out-github-pages
-          mv /tmp/out/gopojde-manager-web-github-pages /tmp/out-github-pages
+          mv /tmp/out/gopojde-manager-web-github-pages/* /tmp/out-github-pages
       - name: Publish pre-release to GitHub releases
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -83,6 +87,6 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@4.1.0
         with:
           branch: gh-pages
-          folder: /tmp/out-github-pages/gopojde-manager-web-github-pages
+          folder: /tmp/out-github-pages
           git-config-name: GitHub Pages Bot
           git-config-email: bot@example.com
