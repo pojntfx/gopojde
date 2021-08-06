@@ -9,11 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        command:
-          - bagop -j \"$(nproc)\" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=$DST'
-          - bagop -j \"$(nproc)\" -b gopojde-manager -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=$DST'
-          - bagop -j \"$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=$DST'
-          - make release-manager-web-github-pages
+        target:
+          - id: gopojde-daemon
+            command: bagop -j \"$(nproc)\" -b gopojde-daemon -x '(android/*|ios/*|openbsd/mips64|aix/ppc64|js/wasm|plan9/*)' -d out/release/gopojde-daemon -p 'make release-daemon DST=$DST'
+            output: |
+              out/release/gopojde-daemon/*
+          - id: gopojde-manager
+            command: bagop -j \"$(nproc)\" -b gopojde-manager -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-manager-native -p 'make release-manager-native DST=$DST'
+            output: |
+              out/release/gopojde-manager-web/*
+              out/release/gopojde-manager-native/*
+          - id: gopojde-companion
+            command: bagop -j \"$(nproc)\" -b gopojde-companion -x '(android/*|ios/*|plan9/*|aix/ppc64)' -d out/release/gopojde-companion-native -p 'make release-companion-native DST=$DST'
+            output: |
+              out/release/gopojde-companion-web/*
+              out/release/gopojde-companion-native/*
+          - id: gopojde-manager-web-github-pages
+            command: make release-manager-web-github-pages
+            output: |
+              out/release/gopojde-manager-web-github-pages
 
     steps:
       - name: Checkout
@@ -27,20 +41,15 @@ jobs:
           curl -L -o /tmp/hydrun "https://github.com/pojntfx/hydrun/releases/latest/download/hydrun.linux-$(uname -m)"
           sudo install /tmp/hydrun /usr/local/bin
       - name: Build with hydrun
-        run: hydrun -o golang "./Hydrunfile && ${{ matrix.command }}"
+        run: hydrun -o golang "./Hydrunfile && ${{ matrix.target.command }}"
       - name: Fix permissions for output
         run: sudo chown -R $USER .
       - name: Upload output
         uses: actions/upload-artifact@v2
         with:
-          name: output-${{ matrix.command }}
+          name: output-${{ matrix.target.id }}
           path: |
-            out/release/gopojde-daemon/*
-            out/release/gopojde-manager-web/*
-            out/release/gopojde-manager-native/*
-            out/release/gopojde-companion-web/*
-            out/release/gopojde-companion-native/*
-            out/release/gopojde-manager-web-github-pages
+            ${{ matrix.target.output }}
 
   publish-linux:
     runs-on: ubuntu-latest
