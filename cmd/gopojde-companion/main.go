@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/kataras/compress"
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
 	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
@@ -109,7 +108,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 					if viper.GetBool(serveKey) {
 						log.Printf("gopojde companion listening on %v", viper.GetString(laddrKey))
 
-						if err := http.ListenAndServe(viper.GetString(laddrKey), compress.Handler(h)); err != nil {
+						if err := http.ListenAndServe(viper.GetString(laddrKey), h); err != nil {
 							return err
 						}
 					}
@@ -185,6 +184,8 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 
 			// Get options for each instance
 			for _, instance := range instances.GetInstances() {
+				log.Println(instance)
+
 				options, err := daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
 				if err != nil {
 					return []InstanceAndOptions{}, err

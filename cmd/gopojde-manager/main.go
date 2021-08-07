@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"runtime"
 
-	"github.com/kataras/compress"
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
 	"github.com/pojntfx/gopojde/pkg/components"
 	"github.com/pojntfx/gopojde/pkg/web/manager"
@@ -97,7 +96,7 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 					if viper.GetBool(serveKey) {
 						log.Printf("gopojde manager listening on %v", viper.GetString(laddrKey))
 
-						if err := http.ListenAndServe(viper.GetString(laddrKey), compress.Handler(h)); err != nil {
+						if err := http.ListenAndServe(viper.GetString(laddrKey), h); err != nil {
 							return err
 						}
 					}
