@@ -33,11 +33,6 @@ const (
 	laddrKey = "laddr"
 )
 
-type InstanceAndOptions struct {
-	*api.InstanceSummaryMessage
-	*api.InstanceOptionsMessage
-}
-
 func main() {
 	// Web code
 	{
@@ -169,29 +164,27 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 			return nil
 		})
 
-		ui.Bind("gopojdeCompanionGetInstances", func() ([]InstanceAndOptions, error) {
+		ui.Bind("gopojdeCompanionGetInstances", func() ([]components.InstanceAndOptions, error) {
 			if daemon == nil {
-				return []InstanceAndOptions{}, errors.New("could not get instances: not connected to daemon")
+				return []components.InstanceAndOptions{}, errors.New("could not get instances: not connected to daemon")
 			}
 
 			// Get all instances
-			res := []InstanceAndOptions{}
+			res := []components.InstanceAndOptions{}
 
 			instances, err := daemon.GetInstances(context.Background(), &emptypb.Empty{})
 			if err != nil {
-				return []InstanceAndOptions{}, err
+				return []components.InstanceAndOptions{}, err
 			}
 
 			// Get options for each instance
 			for _, instance := range instances.GetInstances() {
-				log.Println(instance)
-
 				options, err := daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
 				if err != nil {
-					return []InstanceAndOptions{}, err
+					return []components.InstanceAndOptions{}, err
 				}
 
-				res = append(res, InstanceAndOptions{
+				res = append(res, components.InstanceAndOptions{
 					InstanceSummaryMessage: instance,
 					InstanceOptionsMessage: options,
 				})
