@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -11,18 +9,14 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"time"
 
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
-	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
-	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/components"
+	"github.com/pojntfx/gopojde/pkg/ipc/server"
 	"github.com/pojntfx/gopojde/pkg/web/companion"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/zserge/lorca"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -149,49 +143,9 @@ For more information, please visit https://github.com/pojntfx/gopojde.`,
 		}
 		defer ui.Close()
 
-		// Global UI state
-		var daemon api.InstancesServiceClient
-
-		// Register handlers
-		ui.Bind("gopojdeCompanionConnectToDaemon", func(address string) error {
-			conn, err := grpc.Dial(address, grpc.WithContextDialer(websocketproxy.NewWebSocketProxyClient(time.Minute).Dialer), grpc.WithInsecure())
-			if err != nil {
-				return err
-			}
-
-			daemon = api.NewInstancesServiceClient(conn)
-
-			return nil
-		})
-
-		ui.Bind("gopojdeCompanionGetInstances", func() ([]components.InstanceAndOptions, error) {
-			if daemon == nil {
-				return []components.InstanceAndOptions{}, errors.New("could not get instances: not connected to daemon")
-			}
-
-			// Get all instances
-			res := []components.InstanceAndOptions{}
-
-			instances, err := daemon.GetInstances(context.Background(), &emptypb.Empty{})
-			if err != nil {
-				return []components.InstanceAndOptions{}, err
-			}
-
-			// Get options for each instance
-			for _, instance := range instances.GetInstances() {
-				options, err := daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
-				if err != nil {
-					return []components.InstanceAndOptions{}, err
-				}
-
-				res = append(res, components.InstanceAndOptions{
-					InstanceSummaryMessage: instance,
-					InstanceOptionsMessage: options,
-				})
-			}
-
-			return res, nil
-		})
+		// Bind IPC handlers
+		companionIPC := server.NewCompanionIPC()
+		companionIPC.Bind(ui)
 
 		// Start integrated webserver
 		lis, err := net.Listen("tcp", "localhost:0")
