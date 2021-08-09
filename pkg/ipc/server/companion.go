@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
@@ -65,4 +66,51 @@ func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
 	}
 
 	return res, nil
+}
+
+func (c *CompanionIPCServer) CreateSSHConnection(instanceID string) error {
+	if c.daemon == nil {
+		return errors.New("could not get instances: not connected to daemon")
+	}
+
+	// Get all instances
+	instances, err := c.daemon.GetInstances(context.Background(), &emptypb.Empty{})
+	if err != nil {
+		return err
+	}
+
+	// Get the relevant instance
+	targetPort := 0
+	targetUser := ""
+	found := false
+	for _, instance := range instances.GetInstances() {
+		if instance.GetInstanceID().GetName() == instanceID {
+			ports := instance.GetPorts()
+
+			for _, port := range ports {
+				if port.GetService() == "ssh" {
+					targetPort = int(port.GetPort())
+
+					config, err := c.daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
+					if err != nil {
+						return err
+					}
+
+					targetUser = config.GetUserName()
+
+					found = true
+
+					break
+				}
+			}
+		}
+	}
+
+	if !found {
+		return errors.New("could not find SSH credentials for instance")
+	}
+
+	log.Println(targetPort, targetUser)
+
+	return nil
 }
