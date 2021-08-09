@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/url"
 	"time"
 
 	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
@@ -15,7 +16,8 @@ import (
 )
 
 type CompanionIPCServer struct {
-	daemon api.InstancesServiceClient
+	daemon  api.InstancesServiceClient
+	address string
 }
 
 func NewCompanionIPC() *CompanionIPCServer {
@@ -41,6 +43,7 @@ func (c *CompanionIPCServer) Open(address string) error {
 	}
 
 	c.daemon = api.NewInstancesServiceClient(conn)
+	c.address = address
 
 	return nil
 }
@@ -110,7 +113,13 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string) error {
 		return errors.New("could not find SSH credentials for instance")
 	}
 
-	log.Println(targetPort, targetUser)
+	// Get hostname from Docker
+	u, err := url.Parse(c.address)
+	if err != nil {
+		return err
+	}
+
+	log.Println(targetPort, targetUser, u.Host)
 
 	return nil
 }
