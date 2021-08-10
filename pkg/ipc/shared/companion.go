@@ -1,8 +1,9 @@
 package shared
 
 const (
-	OpenKey         = "ipcOpen"
-	GetInstancesKey = "ipcGetInstances"
+	OpenKey             = "ipcOpen"
+	GetInstancesKey     = "ipcGetInstances"
+	CreateSSHConnection = "ipcCreateSSHConnection"
 )
 
 type Instance struct {
