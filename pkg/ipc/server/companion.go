@@ -131,6 +131,7 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string, privateKey s
 	}
 
 	// Parse the SSH key
+	// TODO: Enable password protected SSH keys
 	sshKey, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
 		return "", err
