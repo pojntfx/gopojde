@@ -34,3 +34,12 @@ func (c *CompanionIPCClient) GetInstances() ([]shared.Instance, error) {
 
 	return rv, nil
 }
+
+func (c *CompanionIPCClient) CreateSSHConnection(instanceID string, privateKey string) (string, error) {
+	res, err := interop.Await(app.Window().Call(shared.CreateSSHConnection, instanceID, privateKey))
+	if err != nil {
+		return "", err
+	}
+
+	return res.String(), err
+}

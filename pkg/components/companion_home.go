@@ -31,7 +31,17 @@ func (c *CompanionHome) Render() app.UI {
 			}),
 			app.Ul().Class("pf-c-list").Body(
 				app.Range(c.instances).Slice(func(i int) app.UI {
-					return app.Li().Text(c.instances[i])
+					return app.Li().Body(
+						app.Span().Text(c.instances[i].Name),
+						app.Button().Class("pf-c-button").Text("Connect via SSH").OnClick(func(ctx app.Context, e app.Event) {
+							key, err := c.ipc.CreateSSHConnection(c.instances[i].ID, app.Window().Call("prompt", "SSH private key").String())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							log.Println("Created SSH connection with key", key)
+						}),
+					)
 				}),
 			),
 		).Else(
