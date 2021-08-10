@@ -3,14 +3,18 @@ package server
 import (
 	"context"
 	"errors"
-	"log"
+	"net"
 	"net/url"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pojntfx/go-app-grpc-chat-frontend-web/pkg/websocketproxy"
 	api "github.com/pojntfx/gopojde/pkg/api/proto/v1"
 	"github.com/pojntfx/gopojde/pkg/ipc/shared"
+	"github.com/pojntfx/gopojde/pkg/tunnel"
 	"github.com/zserge/lorca"
+	"golang.org/x/crypto/ssh"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -18,6 +22,9 @@ import (
 type CompanionIPCServer struct {
 	daemon  api.InstancesServiceClient
 	address string
+
+	sshConnectionManager     *tunnel.SSHConnectionManager
+	sshConnectionManagerLock sync.Mutex
 }
 
 func NewCompanionIPC() *CompanionIPCServer {
@@ -30,6 +37,10 @@ func (c *CompanionIPCServer) Bind(ui lorca.UI) error {
 	}
 
 	if err := ui.Bind(shared.GetInstancesKey, c.GetInstances); err != nil {
+		return err
+	}
+
+	if err := ui.Bind(shared.CreateSSHConnection, c.CreateSSHConnection); err != nil {
 		return err
 	}
 
@@ -71,15 +82,15 @@ func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
 	return res, nil
 }
 
-func (c *CompanionIPCServer) CreateSSHConnection(instanceID string) error {
+func (c *CompanionIPCServer) CreateSSHConnection(instanceID string, privateKey string) (string, error) {
 	if c.daemon == nil {
-		return errors.New("could not get instances: not connected to daemon")
+		return "", errors.New("could not get instances: not connected to daemon")
 	}
 
 	// Get all instances
 	instances, err := c.daemon.GetInstances(context.Background(), &emptypb.Empty{})
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Get the relevant instance
@@ -96,7 +107,7 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string) error {
 
 					config, err := c.daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
 					if err != nil {
-						return err
+						return "", err
 					}
 
 					targetUser = config.GetUserName()
@@ -110,16 +121,37 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string) error {
 	}
 
 	if !found {
-		return errors.New("could not find SSH credentials for instance")
+		return "", errors.New("could not find SSH credentials for instance")
 	}
 
 	// Get hostname from Docker
 	u, err := url.Parse(c.address)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	log.Println(targetPort, targetUser, u.Host)
+	// Parse the SSH key
+	sshKey, err := ssh.ParsePrivateKey([]byte(privateKey))
+	if err != nil {
+		return "", err
+	}
 
-	return nil
+	// Create the SSH connection manager if it doesn't already exist
+	c.sshConnectionManagerLock.Lock()
+	defer c.sshConnectionManagerLock.Unlock()
+
+	if c.sshConnectionManager == nil {
+		c.sshConnectionManager = tunnel.NewSSHConnectionManager()
+	}
+
+	// Create the SSH connection
+	key, _, err := c.sshConnectionManager.GetOrCreateSSHConnection(net.JoinHostPort(u.Host, strconv.Itoa(targetPort)), targetUser, []ssh.AuthMethod{ssh.PublicKeys(sshKey)}, func(hostname, fingerprint string) error {
+		// TODO: Ask the client to verify
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return key, nil
 }
