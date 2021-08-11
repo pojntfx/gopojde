@@ -35,8 +35,30 @@ func (c *CompanionIPCClient) GetInstances() ([]shared.Instance, error) {
 	return rv, nil
 }
 
-func (c *CompanionIPCClient) CreateSSHConnection(instanceID string, privateKey string) (string, error) {
-	res, err := interop.Await(app.Window().Call(shared.CreateSSHConnection, instanceID, privateKey))
+func (c *CompanionIPCClient) CreateSSHConnection(
+	instanceID string,
+	privateKey string,
+	// TODO: Prevent this callback from being 0
+	passwordGetterFunc func() string,
+	hostKeyValidatorFunc func(hostname, fingerprint string) error,
+) (string, error) {
+	passwordGetter := app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		return passwordGetterFunc()
+	})
+	defer passwordGetter.Release()
+
+	hostKeyValidator := app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		return hostKeyValidatorFunc(args[0].String(), args[1].String())
+	})
+	defer hostKeyValidator.Release()
+
+	res, err := interop.Await(app.Window().Call(
+		shared.CreateSSHConnection,
+		instanceID,
+		privateKey,
+		passwordGetter,
+		hostKeyValidator,
+	))
 	if err != nil {
 		return "", err
 	}

@@ -82,7 +82,12 @@ func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
 	return res, nil
 }
 
-func (c *CompanionIPCServer) CreateSSHConnection(instanceID string, privateKey string) (string, error) {
+func (c *CompanionIPCServer) CreateSSHConnection(
+	instanceID string,
+	privateKey string,
+	passwordGetterFunc func() string,
+	hostKeyValidatorFunc func(hostname, fingerprint string) error,
+) (string, error) {
 	if c.daemon == nil {
 		return "", errors.New("could not get instances: not connected to daemon")
 	}
@@ -131,10 +136,16 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string, privateKey s
 	}
 
 	// Parse the SSH key
-	// TODO: Enable password protected SSH keys
 	sshKey, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
-		return "", err
+		if err.Error() == (&ssh.PassphraseMissingError{}).Error() {
+			sshKey, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(passwordGetterFunc()))
+			if err != nil {
+				return "", err
+			}
+		} else {
+			return "", err
+		}
 	}
 
 	// Create the SSH connection manager if it doesn't already exist
@@ -146,10 +157,13 @@ func (c *CompanionIPCServer) CreateSSHConnection(instanceID string, privateKey s
 	}
 
 	// Create the SSH connection
-	key, _, err := c.sshConnectionManager.GetOrCreateSSHConnection(net.JoinHostPort(u.Host, strconv.Itoa(targetPort)), targetUser, []ssh.AuthMethod{ssh.PublicKeys(sshKey)}, func(hostname, fingerprint string) error {
-		// TODO: Ask the client to verify
-		return nil
-	})
+	key, _, err := c.sshConnectionManager.GetOrCreateSSHConnection(
+		net.JoinHostPort(u.Host, strconv.Itoa(targetPort)),
+		targetUser,
+		[]ssh.AuthMethod{ssh.PublicKeys(sshKey)},
+		func(hostname, fingerprint string) error {
+			return hostKeyValidatorFunc(hostname, fingerprint)
+		})
 	if err != nil {
 		return "", err
 	}

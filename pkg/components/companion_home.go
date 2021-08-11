@@ -1,6 +1,7 @@
 package components
 
 import (
+	"errors"
 	"log"
 
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
@@ -34,7 +35,21 @@ func (c *CompanionHome) Render() app.UI {
 					return app.Li().Body(
 						app.Span().Text(c.instances[i].Name),
 						app.Button().Class("pf-c-button").Text("Connect via SSH").OnClick(func(ctx app.Context, e app.Event) {
-							key, err := c.ipc.CreateSSHConnection(c.instances[i].ID, app.Window().Call("prompt", "SSH private key").String())
+							key, err := c.ipc.CreateSSHConnection(
+								c.instances[i].ID,
+								app.Window().Call("prompt", "SSH private key").String(),
+								func() string {
+									return app.Window().Call("prompt", "SSH private key's password").String()
+								},
+								func(hostname, fingerprint string) error {
+									confirmed := app.Window().Call("confirm", `Does the fingerprint "`+fingerprint+`" match for the hostname "`+hostname+`"?`).Bool()
+									if !confirmed {
+										return errors.New("fingerprint did not match for hostname")
+									}
+
+									return nil
+								},
+							)
 							if err != nil {
 								log.Fatal(err)
 							}
