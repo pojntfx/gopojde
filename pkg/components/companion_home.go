@@ -1,7 +1,6 @@
 package components
 
 import (
-	"errors"
 	"log"
 
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
@@ -38,17 +37,6 @@ func (c *CompanionHome) Render() app.UI {
 							key, err := c.ipc.CreateSSHConnection(
 								c.instances[i].ID,
 								app.Window().Call("prompt", "SSH private key").String(),
-								func() string {
-									return app.Window().Call("prompt", "SSH private key's password").String()
-								},
-								func(hostname, fingerprint string) error {
-									confirmed := app.Window().Call("confirm", `Does the fingerprint "`+fingerprint+`" match for the hostname "`+hostname+`"?`).Bool()
-									if !confirmed {
-										return errors.New("fingerprint did not match for hostname")
-									}
-
-									return nil
-								},
 							)
 							if err != nil {
 								log.Fatal(err)
@@ -71,8 +59,9 @@ func (c *CompanionHome) Render() app.UI {
 	)
 }
 
-func (c *CompanionHome) OnMount(app.Context) {
+func (c *CompanionHome) OnMount(ctx app.Context) {
 	c.instances = []shared.Instance{}
 
 	c.ipc = client.NewCompanionIPCClient()
+	c.ipc.Bind(ctx)
 }

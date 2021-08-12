@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"html/template"
 	"net"
 	"net/url"
 	"strconv"
@@ -19,12 +21,19 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const (
+	targetUser = "root"
+)
+
 type CompanionIPCServer struct {
 	daemon  api.InstancesServiceClient
 	address string
 
 	sshConnectionManager     *tunnel.SSHConnectionManager
 	sshConnectionManagerLock sync.Mutex
+
+	passwordGetterFunc   func() string
+	hostKeyValidatorFunc func(hostname, fingerprint string) error
 }
 
 func NewCompanionIPC() *CompanionIPCServer {
@@ -40,8 +49,16 @@ func (c *CompanionIPCServer) Bind(ui lorca.UI) error {
 		return err
 	}
 
-	if err := ui.Bind(shared.CreateSSHConnection, c.CreateSSHConnection); err != nil {
+	if err := ui.Bind(shared.CreateSSHConnectionKey, c.CreateSSHConnection); err != nil {
 		return err
+	}
+
+	c.passwordGetterFunc = func() string {
+		return ui.Eval(shared.PasswordGetterKey + "()").String()
+	}
+
+	c.hostKeyValidatorFunc = func(hostname, fingerprint string) error {
+		return ui.Eval(shared.HostKeyValidatorKey + fmt.Sprintf(`("%v", "%v")`, template.JSEscapeString(hostname), template.JSEscapeString(fingerprint))).Err()
 	}
 
 	return nil
@@ -85,8 +102,6 @@ func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
 func (c *CompanionIPCServer) CreateSSHConnection(
 	instanceID string,
 	privateKey string,
-	passwordGetterFunc func() string,
-	hostKeyValidatorFunc func(hostname, fingerprint string) error,
 ) (string, error) {
 	if c.daemon == nil {
 		return "", errors.New("could not get instances: not connected to daemon")
@@ -100,7 +115,6 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 
 	// Get the relevant instance
 	targetPort := 0
-	targetUser := ""
 	found := false
 	for _, instance := range instances.GetInstances() {
 		if instance.GetInstanceID().GetName() == instanceID {
@@ -109,14 +123,6 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 			for _, port := range ports {
 				if port.GetService() == "ssh" {
 					targetPort = int(port.GetPort())
-
-					config, err := c.daemon.GetInstanceConfig(context.Background(), instance.GetInstanceID())
-					if err != nil {
-						return "", err
-					}
-
-					targetUser = config.GetUserName()
-
 					found = true
 
 					break
@@ -139,7 +145,7 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 	sshKey, err := ssh.ParsePrivateKey([]byte(privateKey))
 	if err != nil {
 		if err.Error() == (&ssh.PassphraseMissingError{}).Error() {
-			sshKey, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(passwordGetterFunc()))
+			sshKey, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(c.passwordGetterFunc()))
 			if err != nil {
 				return "", err
 			}
@@ -158,11 +164,13 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 
 	// Create the SSH connection
 	key, _, err := c.sshConnectionManager.GetOrCreateSSHConnection(
-		net.JoinHostPort(u.Host, strconv.Itoa(targetPort)),
+		net.JoinHostPort(u.Hostname(), strconv.Itoa(targetPort)),
+		// TODO: `pojde` instances currently only configure SSH access for the root user,
+		// but in the future the non-root user could be queried with config.GetUserName()
 		targetUser,
 		[]ssh.AuthMethod{ssh.PublicKeys(sshKey)},
 		func(hostname, fingerprint string) error {
-			return hostKeyValidatorFunc(hostname, fingerprint)
+			return c.hostKeyValidatorFunc(hostname, fingerprint)
 		})
 	if err != nil {
 		return "", err
