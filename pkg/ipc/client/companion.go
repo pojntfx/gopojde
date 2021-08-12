@@ -1,6 +1,8 @@
 package client
 
 import (
+	"errors"
+
 	"github.com/maxence-charriere/go-app/v9/pkg/app"
 	"github.com/pojntfx/gopojde/pkg/interop"
 	"github.com/pojntfx/gopojde/pkg/ipc/shared"
@@ -11,6 +13,23 @@ type CompanionIPCClient struct {
 
 func NewCompanionIPCClient() *CompanionIPCClient {
 	return &CompanionIPCClient{}
+}
+
+func (c *CompanionIPCClient) Bind(ctx app.Context) error {
+	app.Window().Set(shared.PasswordGetterKey, app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		return app.Window().Call("prompt", "SSH private key's password").String()
+	}))
+
+	app.Window().Set(shared.HostKeyValidatorKey, app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		confirmed := app.Window().Call("confirm", `Does the fingerprint "`+args[1].String()+`" match for the hostname "`+args[0].String()+`"?`).Bool()
+		if !confirmed {
+			return errors.New("fingerprint did not match for host")
+		}
+
+		return nil
+	}))
+
+	return nil
 }
 
 func (c *CompanionIPCClient) Open(ctx app.Context, address string) error {
@@ -38,26 +57,11 @@ func (c *CompanionIPCClient) GetInstances() ([]shared.Instance, error) {
 func (c *CompanionIPCClient) CreateSSHConnection(
 	instanceID string,
 	privateKey string,
-	// TODO: Prevent this callback from being 0
-	passwordGetterFunc func() string,
-	hostKeyValidatorFunc func(hostname, fingerprint string) error,
 ) (string, error) {
-	passwordGetter := app.FuncOf(func(this app.Value, args []app.Value) interface{} {
-		return passwordGetterFunc()
-	})
-	defer passwordGetter.Release()
-
-	hostKeyValidator := app.FuncOf(func(this app.Value, args []app.Value) interface{} {
-		return hostKeyValidatorFunc(args[0].String(), args[1].String())
-	})
-	defer hostKeyValidator.Release()
-
 	res, err := interop.Await(app.Window().Call(
-		shared.CreateSSHConnection,
+		shared.CreateSSHConnectionKey,
 		instanceID,
 		privateKey,
-		passwordGetter,
-		hostKeyValidator,
 	))
 	if err != nil {
 		return "", err
