@@ -29,21 +29,54 @@ func (c *CompanionHome) Render() app.UI {
 
 				c.instances = instances
 			}),
-			app.Ul().Class("pf-c-list").Body(
+			app.Ul().Class("pf-c-data-list").Aria("role", "list").Aria("label", "List of instances").Body(
 				app.Range(c.instances).Slice(func(i int) app.UI {
-					return app.Li().Body(
-						app.Span().Text(c.instances[i].Name),
-						app.Button().Class("pf-c-button").Text("Connect via SSH").OnClick(func(ctx app.Context, e app.Event) {
-							key, err := c.ipc.CreateSSHConnection(
-								c.instances[i].ID,
-								app.Window().Call("prompt", "SSH private key").String(),
-							)
-							if err != nil {
-								log.Fatal(err)
-							}
+					return app.Li().Class("pf-c-data-list__item").Body(
+						app.Div().Class("pf-c-data-list__item-row").Body(
+							app.Div().Class("pf-c-data-list__item-content").Body(
+								app.Div().Class("pf-c-data-list__cell pf-m-align-left").Body(
+									app.Div().Class("pf-l-flex pf-m-column pf-m-space-items-md").Body(
+										app.Div().Class("pf-l-flex pf-m-column pf-m-space-items-none").Body(
+											app.Div().Class("pf-l-flex__item").Body(
+												app.P().Text(c.instances[i].Name),
+											),
+										),
+										app.Div().Class("pf-l-flex__item").Body(
+											app.Div().Class("pf-c-chip-group").Body(
+												app.Div().Class("pf-c-chip-group__main").Body(
+													app.Ul().Class("pf-c-chip-group__list").Aria("role", "list").Aria("label", "Open ports").Body(
+														app.Li().Class("pf-c-chip-group__list-item").Body(
+															app.Div().Class("pf-c-chip").Body(
+																// TODO: Get the actual ports from the SSH connection manager here
+																app.Span().Class("pf-c-chip__text").Text("5000"),
+																app.Button().Class("pf-c-button pf-m-plain").Type("button").Aria("label", "Remove port").Body(
+																	app.I().Class("fas fa-times").Aria("hidden", true),
+																),
+															),
+														),
+													),
+												),
+											),
+										),
+									),
+								),
+								app.Div().Class("pf-c-data-list__cell pf-m-align-right pf-m-no-fill pf-u-mt-md-on-md").Body(
+									app.Button().Class("pf-c-button pf-m-secondary").Type("button").Aria("label", "Add a port").OnClick(func(ctx app.Context, e app.Event) {
+										key, err := c.ipc.CreateSSHConnection(
+											c.instances[i].ID,
+											app.Window().Call("prompt", "SSH private key").String(),
+										)
+										if err != nil {
+											log.Fatal(err)
+										}
 
-							log.Println("Created SSH connection with key", key)
-						}),
+										log.Println("Created SSH connection with key", key)
+									}).Body(
+										app.I().Class("fas fa-plus").Aria("hidden", true),
+									),
+								),
+							),
+						),
 					)
 				}),
 			),
