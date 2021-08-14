@@ -38,7 +38,7 @@ func (c *CompanionHome) Render() app.UI {
 								c.connected = true
 							}
 
-							instances, err := c.ipc.GetInstances()
+							instances, err := c.ipc.GetInstances(app.Window().Call("prompt", "SSH private key").String())
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -86,17 +86,7 @@ func (c *CompanionHome) Render() app.UI {
 											),
 										),
 										app.Div().Class("pf-c-data-list__cell pf-m-align-right pf-m-no-fill pf-u-mt-md-on-md").Body(
-											app.Button().Class("pf-c-button pf-m-secondary").Type("button").Aria("label", "Add a port").OnClick(func(ctx app.Context, e app.Event) {
-												key, err := c.ipc.CreateSSHConnection(
-													c.instances[i].ID,
-													app.Window().Call("prompt", "SSH private key").String(),
-												)
-												if err != nil {
-													log.Fatal(err)
-												}
-
-												log.Println("Created SSH connection with key", key)
-											}).Body(
+											app.Button().Class("pf-c-button pf-m-secondary").Type("button").Aria("label", "Add a port").Body(
 												app.I().Class("fas fa-plus").Aria("hidden", true),
 											),
 										),

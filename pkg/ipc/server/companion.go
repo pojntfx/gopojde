@@ -49,10 +49,6 @@ func (c *CompanionIPCServer) Bind(ui lorca.UI) error {
 		return err
 	}
 
-	if err := ui.Bind(shared.CreateSSHConnectionKey, c.CreateSSHConnection); err != nil {
-		return err
-	}
-
 	c.passwordGetterFunc = func() string {
 		return ui.Eval(shared.PasswordGetterKey + "()").String()
 	}
@@ -76,7 +72,7 @@ func (c *CompanionIPCServer) Open(address string) error {
 	return nil
 }
 
-func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
+func (c *CompanionIPCServer) GetInstances(privateKey string) ([]shared.Instance, error) {
 	if c.daemon == nil {
 		return []shared.Instance{}, errors.New("could not get instances: not connected to daemon")
 	}
@@ -87,58 +83,10 @@ func (c *CompanionIPCServer) GetInstances() ([]shared.Instance, error) {
 		return []shared.Instance{}, err
 	}
 
-	// Reduce instances to relevant options
-	res := []shared.Instance{}
-	for _, instance := range instances.GetInstances() {
-		res = append(res, shared.Instance{
-			ID:   instance.GetInstanceID().GetName(),
-			Name: instance.GetInstanceID().GetName(),
-		})
-	}
-
-	return res, nil
-}
-
-func (c *CompanionIPCServer) CreateSSHConnection(
-	instanceID string,
-	privateKey string,
-) (string, error) {
-	if c.daemon == nil {
-		return "", errors.New("could not get instances: not connected to daemon")
-	}
-
-	// Get all instances
-	instances, err := c.daemon.GetInstances(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		return "", err
-	}
-
-	// Get the relevant instance
-	targetPort := 0
-	found := false
-	for _, instance := range instances.GetInstances() {
-		if instance.GetInstanceID().GetName() == instanceID {
-			ports := instance.GetPorts()
-
-			for _, port := range ports {
-				if port.GetService() == "ssh" {
-					targetPort = int(port.GetPort())
-					found = true
-
-					break
-				}
-			}
-		}
-	}
-
-	if !found {
-		return "", errors.New("could not find SSH credentials for instance")
-	}
-
 	// Get hostname from Docker
 	u, err := url.Parse(c.address)
 	if err != nil {
-		return "", err
+		return []shared.Instance{}, err
 	}
 
 	// Parse the SSH key
@@ -147,10 +95,10 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 		if err.Error() == (&ssh.PassphraseMissingError{}).Error() {
 			sshKey, err = ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(c.passwordGetterFunc()))
 			if err != nil {
-				return "", err
+				return []shared.Instance{}, err
 			}
 		} else {
-			return "", err
+			return []shared.Instance{}, err
 		}
 	}
 
@@ -162,19 +110,60 @@ func (c *CompanionIPCServer) CreateSSHConnection(
 		c.sshConnectionManager = tunnel.NewSSHConnectionManager()
 	}
 
-	// Create the SSH connection
-	key, _, err := c.sshConnectionManager.GetOrCreateSSHConnection(
-		net.JoinHostPort(u.Hostname(), strconv.Itoa(targetPort)),
-		// TODO: `pojde` instances currently only configure SSH access for the root user,
-		// but in the future the non-root user could be queried with config.GetUserName()
-		targetUser,
-		[]ssh.AuthMethod{ssh.PublicKeys(sshKey)},
-		func(hostname, fingerprint string) error {
-			return c.hostKeyValidatorFunc(hostname, fingerprint)
+	// Reduce instances to relevant options
+	res := []shared.Instance{}
+	for _, instance := range instances.GetInstances() {
+		// Get the SSH port for the instance
+		ports := instance.GetPorts()
+		sshPort := -1
+		for _, port := range ports {
+			if port.GetService() == "ssh" {
+				sshPort = int(port.GetPort())
+
+				break
+			}
+		}
+
+		if sshPort == -1 {
+			return []shared.Instance{}, errors.New("could not find SSH connection details for instance")
+		}
+
+		// Create the SSH connection
+		_, conn, err := c.sshConnectionManager.GetOrCreateSSHConnection(
+			net.JoinHostPort(u.Hostname(), strconv.Itoa(sshPort)),
+			// TODO: `pojde` instances currently only configure SSH access for the root user,
+			// but in the future the non-root user could be queried with config.GetUserName()
+			targetUser,
+			[]ssh.AuthMethod{ssh.PublicKeys(sshKey)},
+			func(hostname, fingerprint string) error {
+				return c.hostKeyValidatorFunc(hostname, fingerprint)
+			})
+		if err != nil {
+			return []shared.Instance{}, err
+		}
+
+		// Query the tunnels for the instance
+		rawTunnels, err := conn.GetTunnels()
+		if err != nil {
+			return []shared.Instance{}, err
+		}
+
+		// Reduce tunnels to relevant options
+		tunnels := []shared.Tunnel{}
+		for _, tunnel := range rawTunnels {
+			tunnels = append(tunnels, shared.Tunnel{
+				ID:            tunnel.Key,
+				LocalAddress:  tunnel.LocalAddress,
+				RemoteAddress: tunnel.RemoteAddress,
+			})
+		}
+
+		res = append(res, shared.Instance{
+			ID:      instance.GetInstanceID().GetName(),
+			Name:    instance.GetInstanceID().GetName(),
+			Tunnels: tunnels,
 		})
-	if err != nil {
-		return "", err
 	}
 
-	return key, nil
+	return res, nil
 }
