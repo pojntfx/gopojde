@@ -40,8 +40,8 @@ func (c *CompanionIPCClient) Open(ctx app.Context, address string) error {
 	return nil
 }
 
-func (c *CompanionIPCClient) GetInstances() ([]shared.Instance, error) {
-	res, err := interop.Await(app.Window().Call(shared.GetInstancesKey))
+func (c *CompanionIPCClient) GetInstances(privateKey string) ([]shared.Instance, error) {
+	res, err := interop.Await(app.Window().Call(shared.GetInstancesKey, privateKey))
 	if err != nil {
 		return []shared.Instance{}, err
 	}
@@ -52,20 +52,4 @@ func (c *CompanionIPCClient) GetInstances() ([]shared.Instance, error) {
 	}
 
 	return rv, nil
-}
-
-func (c *CompanionIPCClient) CreateSSHConnection(
-	instanceID string,
-	privateKey string,
-) (string, error) {
-	res, err := interop.Await(app.Window().Call(
-		shared.CreateSSHConnectionKey,
-		instanceID,
-		privateKey,
-	))
-	if err != nil {
-		return "", err
-	}
-
-	return res.String(), err
 }
