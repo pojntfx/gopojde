@@ -66,17 +66,20 @@ func (c *CompanionHome) Render() app.UI {
 														app.P().Text(c.instances[i].Name),
 													),
 												),
-												app.Div().Class("pf-l-flex__item").Body(
-													app.Div().Class("pf-c-chip-group").Body(
-														app.Div().Class("pf-c-chip-group__main").Body(
-															app.Ul().Class("pf-c-chip-group__list").Aria("role", "list").Aria("label", "Open ports").Body(
-																app.Li().Class("pf-c-chip-group__list-item").Body(
-																	app.Div().Class("pf-c-chip").Body(
-																		// TODO: Get the actual ports from the SSH connection manager here
-																		app.Span().Class("pf-c-chip__text").Text("5000"),
-																		app.Button().Class("pf-c-button pf-m-plain").Type("button").Aria("label", "Remove port").Body(
-																			app.I().Class("fas fa-times").Aria("hidden", true),
-																		),
+												app.If(len(c.instances[i].Tunnels) > 0,
+													app.Div().Class("pf-l-flex__item").Body(
+														app.Div().Class("pf-c-chip-group").Body(
+															app.Div().Class("pf-c-chip-group__main").Body(
+																app.Ul().Class("pf-c-chip-group__list").Aria("role", "list").Aria("label", "Open ports").Body(
+																	app.Li().Class("pf-c-chip-group__list-item").Body(
+																		app.Range(c.instances[i].Tunnels).Slice(func(j int) app.UI {
+																			return app.Div().Class("pf-c-chip").Body(
+																				app.Span().Class("pf-c-chip__text").Text(c.instances[i].Tunnels[j].LocalAddress+"→"+c.instances[i].Tunnels[j].RemoteAddress),
+																				app.Button().Class("pf-c-button pf-m-plain").Type("button").Aria("label", "Remove port").Body(
+																					app.I().Class("fas fa-times").Aria("hidden", true),
+																				),
+																			)
+																		}),
 																	),
 																),
 															),
