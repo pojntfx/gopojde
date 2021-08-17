@@ -49,6 +49,10 @@ func (c *CompanionIPCServer) Bind(ui lorca.UI) error {
 		return err
 	}
 
+	if err := ui.Bind(shared.ForwardFromLocalToRemoteKey, c.ForwardFromLocalToRemote); err != nil {
+		return err
+	}
+
 	c.passwordGetterFunc = func() string {
 		return ui.Eval(shared.PasswordGetterKey + "()").String()
 	}
@@ -166,4 +170,22 @@ func (c *CompanionIPCServer) GetInstances(privateKey string) ([]shared.Instance,
 	}
 
 	return res, nil
+}
+
+func (c *CompanionIPCServer) ForwardFromLocalToRemote(instanceID string, localAddr string, remoteAddr string) (string, error) {
+	if c.daemon == nil {
+		return "", errors.New("could not forward port: not connected to daemon")
+	}
+
+	if c.sshConnectionManager == nil {
+		return "", errors.New("could not forward port: not connected to instance")
+	}
+
+	// FIXME: Add `ConnectionID` (i.e. root@localhost:5005) to the instances struct and use that for a fully-qualified ID
+	conn, err := c.sshConnectionManager.GetConnection(instanceID)
+	if err != nil {
+		return "", err
+	}
+
+	return conn.AddLocalToRemoteTunnel(localAddr, remoteAddr)
 }

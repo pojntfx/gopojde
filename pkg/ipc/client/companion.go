@@ -53,3 +53,12 @@ func (c *CompanionIPCClient) GetInstances(privateKey string) ([]shared.Instance,
 
 	return rv, nil
 }
+
+func (c *CompanionIPCClient) ForwardFromLocalToRemote(ctx app.Context, instanceID string, localAddr string, remoteAddr string) (string, error) {
+	res, err := interop.Await(app.Window().Call(shared.ForwardFromLocalToRemoteKey, instanceID, localAddr, remoteAddr))
+	if err != nil {
+		return "", err
+	}
+
+	return res.String(), nil
+}

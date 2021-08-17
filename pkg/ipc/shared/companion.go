@@ -1,10 +1,11 @@
 package shared
 
 const (
-	OpenKey             = "ipcOpen"
-	GetInstancesKey     = "ipcGetInstances"
-	PasswordGetterKey   = "ipcPasswordGetter"
-	HostKeyValidatorKey = "ipcHostKeyValidator"
+	OpenKey                     = "ipcOpen"
+	GetInstancesKey             = "ipcGetInstances"
+	PasswordGetterKey           = "ipcPasswordGetter"
+	HostKeyValidatorKey         = "ipcHostKeyValidator"
+	ForwardFromLocalToRemoteKey = "ipcForwardFromLocalToRemote"
 )
 
 type Instance struct {

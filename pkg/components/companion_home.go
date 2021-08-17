@@ -17,6 +17,25 @@ type CompanionHome struct {
 	ipc *client.CompanionIPCClient
 }
 
+func (c *CompanionHome) refresh(ctx app.Context) error {
+	if !c.connected {
+		if err := c.ipc.Open(ctx, "ws://localhost:15324"); err != nil {
+			return err
+		}
+
+		c.connected = true
+	}
+
+	instances, err := c.ipc.GetInstances(app.Window().Call("prompt", "SSH private key").String())
+	if err != nil {
+		return err
+	}
+
+	c.instances = instances
+
+	return nil
+}
+
 func (c *CompanionHome) Render() app.UI {
 	return app.Div().Class("pf-c-page").Body(
 		app.Header().Class("pf-c-page__header").Body(
@@ -30,20 +49,9 @@ func (c *CompanionHome) Render() app.UI {
 				app.Div().Class("pf-c-page__header-tools-group").Body(
 					app.Div().Class("pf-c-page__header-tools-item").Body(
 						app.Button().Class("pf-c-button pf-m-plain").Type("button").Aria("label", "Refresh").OnClick(func(ctx app.Context, e app.Event) {
-							if !c.connected {
-								if err := c.ipc.Open(ctx, "ws://localhost:15324"); err != nil {
-									log.Fatal(err)
-								}
-
-								c.connected = true
-							}
-
-							instances, err := c.ipc.GetInstances(app.Window().Call("prompt", "SSH private key").String())
-							if err != nil {
+							if err := c.refresh(ctx); err != nil {
 								log.Fatal(err)
 							}
-
-							c.instances = instances
 						}).Body(
 							app.I().Class("fas fa-sync").Aria("hidden", true),
 						),
@@ -89,7 +97,15 @@ func (c *CompanionHome) Render() app.UI {
 											),
 										),
 										app.Div().Class("pf-c-data-list__cell pf-m-align-right pf-m-no-fill pf-u-mt-md-on-md").Body(
-											app.Button().Class("pf-c-button pf-m-secondary").Type("button").Aria("label", "Add a port").Body(
+											app.Button().Class("pf-c-button pf-m-secondary").Type("button").Aria("label", "Add a port").OnClick(func(ctx app.Context, e app.Event) {
+												if _, err := c.ipc.ForwardFromLocalToRemote(ctx, c.instances[i].ID, app.Window().Call("prompt", "Local address").String(), app.Window().Call("prompt", "Remote address").String()); err != nil {
+													log.Fatal(err)
+												}
+
+												if err := c.refresh(ctx); err != nil {
+													log.Fatal(err)
+												}
+											}).Body(
 												app.I().Class("fas fa-plus").Aria("hidden", true),
 											),
 										),
